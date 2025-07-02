@@ -22,10 +22,10 @@ export default function Therapists() {
     queryKey: ['/api/therapists', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters.specialty) params.append('specialty', filters.specialty);
-      if (filters.consultationType) params.append('consultationType', filters.consultationType);
-      if (filters.priceMin) params.append('priceMin', filters.priceMin);
-      if (filters.priceMax) params.append('priceMax', filters.priceMax);
+      if (filters.specialty && filters.specialty !== 'all') params.append('specialty', filters.specialty);
+      if (filters.consultationType && filters.consultationType !== 'all') params.append('consultationType', filters.consultationType);
+      if (filters.priceMin && filters.priceMin !== 'all') params.append('priceMin', filters.priceMin);
+      if (filters.priceMax && filters.priceMax !== 'all') params.append('priceMax', filters.priceMax);
       
       const response = await fetch(`/api/therapists?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch therapists');
@@ -85,7 +85,7 @@ export default function Therapists() {
                   <SelectValue placeholder="专业领域" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部领域</SelectItem>
+                  <SelectItem value="all">全部领域</SelectItem>
                   <SelectItem value="抑郁焦虑">抑郁焦虑</SelectItem>
                   <SelectItem value="亲密关系">亲密关系</SelectItem>
                   <SelectItem value="职场压力">职场压力</SelectItem>
@@ -99,7 +99,7 @@ export default function Therapists() {
                   <SelectValue placeholder="咨询方式" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部方式</SelectItem>
+                  <SelectItem value="all">全部方式</SelectItem>
                   <SelectItem value="online">在线咨询</SelectItem>
                   <SelectItem value="in-person">面对面咨询</SelectItem>
                 </SelectContent>
@@ -110,7 +110,7 @@ export default function Therapists() {
                   <SelectValue placeholder="价格范围" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部价格</SelectItem>
+                  <SelectItem value="all">全部价格</SelectItem>
                   <SelectItem value="200">¥200以下</SelectItem>
                   <SelectItem value="300">¥300以下</SelectItem>
                   <SelectItem value="500">¥500以下</SelectItem>
