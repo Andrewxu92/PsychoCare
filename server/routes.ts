@@ -206,8 +206,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
+      // Convert appointmentDate string to Date object if needed
+      const requestData = { ...req.body };
+      if (requestData.appointmentDate && typeof requestData.appointmentDate === 'string') {
+        requestData.appointmentDate = new Date(requestData.appointmentDate);
+      }
+      
       const appointmentData = insertAppointmentSchema.parse({
-        ...req.body,
+        ...requestData,
         clientId: userId
       });
       
