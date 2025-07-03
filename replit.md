@@ -123,6 +123,8 @@ Changelog:
 - July 03, 2025. Fixed payment integration to use x-client-id and x-api-key headers
 - July 03, 2025. Added customer existence handling for existing Airwallex customers
 - July 03, 2025. Removed prefilled payment data and added multiple payment method options
+- July 03, 2025. Implemented complete customer management system with database mapping
+- July 03, 2025. Fixed customer query logic to use existing customer IDs for payment intents
 ```
 
 ## User Preferences
