@@ -37,7 +37,7 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginData) => {
-      const response = await apiRequest("/api/auth/demo-login", "POST", data);
+      const response = await apiRequest("POST", "/api/auth/demo-login", data);
       return response;
     },
     onSuccess: () => {
@@ -60,7 +60,7 @@ export default function Login() {
 
   const sendCodeMutation = useMutation({
     mutationFn: async (emailOrPhone: string) => {
-      const response = await apiRequest("/api/auth/send-code", "POST", { emailOrPhone });
+      const response = await apiRequest("POST", "/api/auth/send-code", { emailOrPhone });
       return response;
     },
     onSuccess: () => {
