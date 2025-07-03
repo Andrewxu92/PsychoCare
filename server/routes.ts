@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema } from "@shared/schema";
-import { airwallexConfig, frontendAirwallexConfig } from "./airwallex-config";
+import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -318,6 +318,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(frontendAirwallexConfig);
   });
 
+  // Test Airwallex authentication
+  app.get('/api/airwallex/test-auth', async (req, res) => {
+    try {
+      const accessToken = await getAirwallexAccessToken();
+      res.json({ 
+        success: true, 
+        message: 'Authentication successful',
+        hasToken: !!accessToken
+      });
+    } catch (error: any) {
+      console.error('Airwallex auth test failed:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Authentication failed',
+        error: error.message
+      });
+    }
+  });
+
   // Payment routes for Airwallex integration
   app.post('/api/payments/customer', isAuthenticated, async (req: any, res) => {
     try {
@@ -340,11 +359,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let customer;
       try {
+        // Get access token first
+        const accessToken = await getAirwallexAccessToken();
+        
         const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${airwallexConfig.apiKey}`
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify(customerData)
         });
@@ -405,11 +427,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let paymentIntent;
       try {
+        // Get access token first
+        const accessToken = await getAirwallexAccessToken();
+        
         const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/payment_intents/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${airwallexConfig.apiKey}`
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify(intentData)
         });
@@ -466,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'confirmed',
           clientNotes: appointment_data.clientNotes || '',
           paymentStatus: 'paid',
-          totalAmount: appointment_data.price
+          price: appointment_data.price || 0
         });
         
         const appointment = await storage.createAppointment(appointmentData);
