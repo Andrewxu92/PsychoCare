@@ -196,10 +196,10 @@ export default function Booking() {
 
     createAppointmentMutation.mutate({
       therapistId: bookingData.therapistId,
-      appointmentDate: bookingData.appointmentDate.toISOString(),
+      appointmentDate: bookingData.appointmentDate,
       consultationType: bookingData.consultationType,
       clientNotes: bookingData.clientNotes,
-      price: bookingData.price,
+      price: (bookingData.price / 100).toFixed(2), // 转换为小数格式的字符串
       status: 'pending',
       paymentStatus: 'pending',
     });
