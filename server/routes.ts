@@ -302,8 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.upsertUser({
         ...user,
         role,
-        phone,
-        updatedAt: new Date()
+        phone
       });
 
       res.json(updatedUser);
