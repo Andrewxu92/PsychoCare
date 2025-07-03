@@ -410,6 +410,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (queryResult.items && queryResult.items.length > 0) {
               customer = queryResult.items[0];
               console.log('Found existing customer:', customer.id);
+              
+              // Store the customer mapping in database for future use
+              try {
+                await storage.createAirwallexCustomer({
+                  userId,
+                  merchantCustomerId: userId,
+                  airwallexCustomerId: customer.id
+                });
+                console.log('Stored existing customer mapping in database');
+              } catch (dbError) {
+                console.warn('Failed to store existing customer mapping:', dbError);
+              }
             } else {
               throw new Error('Customer exists but not found in query results');
             }
@@ -419,18 +431,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else {
           customer = await response.json();
-        }
-
-        // Store the customer mapping in database for future use
-        try {
-          await storage.createAirwallexCustomer({
-            userId,
-            merchantCustomerId: userId,
-            airwallexCustomerId: customer.id
-          });
-          console.log('Stored customer mapping in database');
-        } catch (dbError) {
-          console.warn('Failed to store customer mapping:', dbError);
+          console.log('Successfully created new customer:', customer.id);
+          
+          // Store the customer mapping in database for future use
+          try {
+            await storage.createAirwallexCustomer({
+              userId,
+              merchantCustomerId: userId,
+              airwallexCustomerId: customer.id
+            });
+            console.log('Stored new customer mapping in database');
+          } catch (dbError) {
+            console.warn('Failed to store new customer mapping:', dbError);
+          }
         }
       } catch (airwallexError) {
         console.warn('Airwallex API failed, using mock customer data:', airwallexError);
