@@ -62,8 +62,27 @@ export const therapists = pgTable("therapists", {
   certifications: text("certifications").array(),
   consultationMethods: text("consultation_methods").array(), // ["online", "in-person"]
   isVerified: boolean("is_verified").default(false),
+  verificationStatus: varchar("verification_status").default("pending"), // "pending", "approved", "rejected"
+  verificationNotes: text("verification_notes"), // Admin notes for verification
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0.00"),
   totalReviews: integer("total_reviews").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Therapist credentials/certificates
+export const therapistCredentials = pgTable("therapist_credentials", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => therapists.id),
+  credentialType: varchar("credential_type").notNull(), // "license", "certificate", "degree"
+  credentialName: varchar("credential_name").notNull(),
+  issuingOrganization: varchar("issuing_organization").notNull(),
+  issueDate: timestamp("issue_date"),
+  expiryDate: timestamp("expiry_date"),
+  credentialNumber: varchar("credential_number"),
+  documentUrl: varchar("document_url"), // URL to uploaded document
+  verificationStatus: varchar("verification_status").default("pending"), // "pending", "approved", "rejected"
+  verificationNotes: text("verification_notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -127,6 +146,14 @@ export const therapistRelations = relations(therapists, ({ one, many }) => ({
   availability: many(availability),
   appointments: many(appointments),
   reviews: many(reviews),
+  credentials: many(therapistCredentials),
+}));
+
+export const therapistCredentialRelations = relations(therapistCredentials, ({ one }) => ({
+  therapist: one(therapists, {
+    fields: [therapistCredentials.therapistId],
+    references: [therapists.id],
+  }),
 }));
 
 export const appointmentRelations = relations(appointments, ({ one }) => ({
@@ -195,6 +222,12 @@ export const insertAirwallexCustomerSchema = createInsertSchema(airwallexCustome
   updatedAt: true,
 });
 
+export const insertTherapistCredentialSchema = createInsertSchema(therapistCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -208,6 +241,8 @@ export type InsertAvailability = z.infer<typeof insertAvailabilitySchema>;
 export type Availability = typeof availability.$inferSelect;
 export type InsertAirwallexCustomer = z.infer<typeof insertAirwallexCustomerSchema>;
 export type AirwallexCustomer = typeof airwallexCustomers.$inferSelect;
+export type InsertTherapistCredential = z.infer<typeof insertTherapistCredentialSchema>;
+export type TherapistCredential = typeof therapistCredentials.$inferSelect;
 
 // Extended types with relations
 export type TherapistWithUser = Therapist & { user: User };
