@@ -129,6 +129,9 @@ Changelog:
 - July 03, 2025. Implemented therapist dashboard for appointment management
 - July 03, 2025. Added therapist credentials database table for qualification verification
 - July 03, 2025. Extended API routes for therapist credential management
+- July 03, 2025. Created custom login system with email/phone and password/verification code options
+- July 03, 2025. Added demo user accounts for testing (client and therapist roles)
+- July 03, 2025. Populated database with sample therapist data, appointments, and reviews
 ```
 
 ## User Preferences
