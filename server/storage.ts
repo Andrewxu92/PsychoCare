@@ -253,23 +253,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAppointmentById(id: number): Promise<AppointmentWithDetails | undefined> {
-    const [result] = await db
-      .select()
-      .from(appointments)
-      .innerJoin(users, eq(appointments.clientId, users.id))
-      .innerJoin(therapists, eq(appointments.therapistId, therapists.id))
-      .where(eq(appointments.id, id));
-
-    if (!result) return undefined;
-
-    return {
-      ...result.appointments,
-      client: result.users,
-      therapist: {
-        ...result.therapists,
-        user: result.users
+    const appointment = await db.query.appointments.findFirst({
+      where: eq(appointments.id, id),
+      with: {
+        client: true,
+        therapist: {
+          with: {
+            user: true
+          }
+        }
       }
-    };
+    });
+
+    return appointment as AppointmentWithDetails | undefined;
   }
 
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {

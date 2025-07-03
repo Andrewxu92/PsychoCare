@@ -97,42 +97,50 @@ export default function BookingSuccess() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <Calendar className="h-4 w-4 text-neutral-500" />
-                <div>
-                  <p className="font-medium">预约日期</p>
-                  <p className="text-sm text-neutral-600">
-                    {formatDate(appointment.appointmentDate)}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Clock className="h-4 w-4 text-neutral-500" />
-                <div>
-                  <p className="font-medium">预约时间</p>
-                  <p className="text-sm text-neutral-600">
-                    {formatTime(appointment.appointmentDate)}
-                  </p>
-                </div>
-              </div>
+              {appointment.appointmentDate && (
+                <>
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="h-4 w-4 text-neutral-500" />
+                    <div>
+                      <p className="font-medium">预约日期</p>
+                      <p className="text-sm text-neutral-600">
+                        {formatDate(appointment.appointmentDate)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <Clock className="h-4 w-4 text-neutral-500" />
+                    <div>
+                      <p className="font-medium">预约时间</p>
+                      <p className="text-sm text-neutral-600">
+                        {formatTime(appointment.appointmentDate)}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <div className="flex items-center space-x-3">
-                <MapPin className="h-4 w-4 text-neutral-500" />
-                <div>
-                  <p className="font-medium">咨询方式</p>
-                  <Badge variant={appointment.consultationType === 'online' ? 'default' : 'secondary'}>
-                    {appointment.consultationType === 'online' ? '在线咨询' : '面对面咨询'}
+              {appointment.consultationType && (
+                <div className="flex items-center space-x-3">
+                  <MapPin className="h-4 w-4 text-neutral-500" />
+                  <div>
+                    <p className="font-medium">咨询方式</p>
+                    <Badge variant={appointment.consultationType === 'online' ? 'default' : 'secondary'}>
+                      {appointment.consultationType === 'online' ? '在线咨询' : '面对面咨询'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {appointment.price && (
+                <div className="flex items-center space-x-3">
+                  <span className="text-lg font-bold text-primary">¥{appointment.price}</span>
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    已支付
                   </Badge>
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <span className="text-lg font-bold text-primary">¥{appointment.price}</span>
-                <Badge variant="outline" className="text-green-600 border-green-600">
-                  已支付
-                </Badge>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -145,30 +153,34 @@ export default function BookingSuccess() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={appointment.therapist.user.profileImageUrl ?? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face'}
-                  alt={appointment.therapist.user.firstName || '咨询师'}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div>
-                  <p className="font-medium">
-                    {appointment.therapist.user.firstName} {appointment.therapist.user.lastName}
-                  </p>
-                  <p className="text-sm text-neutral-600">{appointment.therapist.title}</p>
+              {appointment.therapist?.user && (
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={appointment.therapist.user.profileImageUrl ?? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face'}
+                    alt={appointment.therapist.user.firstName || '咨询师'}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-medium">
+                      {appointment.therapist.user.firstName} {appointment.therapist.user.lastName}
+                    </p>
+                    <p className="text-sm text-neutral-600">{appointment.therapist.title}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-2">
-                <p className="text-sm text-neutral-600">
-                  <strong>专业领域：</strong>{appointment.therapist.specialties?.join(', ') || '暂无'}
-                </p>
-                <p className="text-sm text-neutral-600">
-                  <strong>从业经验：</strong>{appointment.therapist.experience}年
-                </p>
-              </div>
+              {appointment.therapist && (
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">
+                    <strong>专业领域：</strong>{appointment.therapist.specialties?.join(', ') || '暂无'}
+                  </p>
+                  <p className="text-sm text-neutral-600">
+                    <strong>从业经验：</strong>{appointment.therapist.experience}年
+                  </p>
+                </div>
+              )}
 
-              {appointment.therapist.user.email && (
+              {appointment.therapist?.user?.email && (
                 <div className="flex items-center space-x-2 text-sm text-neutral-600">
                   <Mail className="h-4 w-4" />
                   <span>{appointment.therapist.user.email}</span>
@@ -179,7 +191,7 @@ export default function BookingSuccess() {
         </div>
 
         {/* Client Notes */}
-        {appointment.clientNotes && (
+        {appointment?.clientNotes && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>您的备注</CardTitle>
@@ -216,7 +228,7 @@ export default function BookingSuccess() {
               </div>
             </div>
 
-            {appointment.consultationType === 'online' && (
+            {appointment?.consultationType === 'online' && (
               <div className="flex items-start space-x-3">
                 <div className="w-6 h-6 rounded-full bg-primary text-white text-sm flex items-center justify-center mt-1">3</div>
                 <div>
