@@ -10,8 +10,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Custom authentication middleware that supports both OAuth and demo login
+  const customAuth = async (req: any, res: any, next: any) => {
+    // Check for demo login session first
+    if (req.session && req.session.userId) {
+      const user = await storage.getUser(req.session.userId);
+      if (user) {
+        req.user = { claims: { sub: user.id } };
+        return next();
+      }
+    }
+    
+    // Fall back to OAuth authentication
+    return isAuthenticated(req, res, next);
+  };
+
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -210,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/therapists/:id/availability', isAuthenticated, async (req: any, res) => {
+  app.post('/api/therapists/:id/availability', customAuth, async (req: any, res) => {
     try {
       const therapistId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
@@ -238,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Appointment routes
-  app.get('/api/appointments', isAuthenticated, async (req: any, res) => {
+  app.get('/api/appointments', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { status, dateFrom, dateTo, therapistId } = req.query;
@@ -366,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/reviews', isAuthenticated, async (req: any, res) => {
+  app.post('/api/reviews', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -387,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User profile routes
-  app.put('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.put('/api/auth/user', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { role, phone } = req.body;
