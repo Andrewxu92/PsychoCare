@@ -450,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment routes for Airwallex integration
-  app.post('/api/payments/customer', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/customer', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -567,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/payments/intent', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/intent', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { amount, currency = 'HKD', customer_id } = req.body;
@@ -630,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/payments/confirm', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/confirm', customAuth, async (req: any, res) => {
     try {
       const { payment_intent_id, appointment_data } = req.body;
       
