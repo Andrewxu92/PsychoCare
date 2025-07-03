@@ -34,9 +34,9 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         await loadAirwallexSDK();
       }
 
-      // Initialize Airwallex
+      // Initialize Airwallex with demo credentials
       window.Airwallex.init({
-        env: import.meta.env.NODE_ENV === 'production' ? 'prod' : 'demo',
+        env: 'demo',
         origin: window.location.origin,
       });
 
@@ -88,17 +88,18 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
   const createDropInElement = (intent: any, customer: any) => {
     try {
-      // Create drop-in element with payment intent
+      // Create drop-in element with payment intent and demo client ID
       const element = window.Airwallex.createElement('dropIn', {
         intent_id: intent.id,
         client_secret: intent.client_secret,
         currency: intent.currency,
         customer_id: customer.id,
+        client_id: 'FgTDjfg9SEGV4vsliPYZzQ', // Demo client ID
         mode: 'payment' // For one-time payment
       });
 
       // Mount the element
-      element.mount('airwallex-dropin-element');
+      element.mount('#airwallex-dropin-element');
       dropInRef.current = element;
 
       // Handle events

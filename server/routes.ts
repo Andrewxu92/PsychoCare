@@ -323,16 +323,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // In a real implementation, create customer with Airwallex API
-      // For now, return mock data structure
-      const customer = {
-        id: `cus_${userId}`,
-        client_secret: `cs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      // Create customer using Airwallex demo API
+      const customerData = {
+        request_id: `req_${Date.now()}_${userId}`,
+        merchant_customer_id: userId,
+        first_name: user.firstName || 'Client',
+        last_name: user.lastName || 'User',
         email: user.email,
-        first_name: user.firstName,
-        last_name: user.lastName
+        phone_number: '+86 1234567890'
       };
 
+      const response = await fetch('https://api-demo.airwallex.com/api/v1/pa/customers/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer 3e865751b89d8fd0da82e564f7397da915e6c1beb0a54256d2ed55475220318eda7cc1c2290eb49a86ab74bb623c2406'
+        },
+        body: JSON.stringify(customerData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Airwallex customer creation error:', response.status, errorText);
+        throw new Error(`Airwallex API error: ${response.status}`);
+      }
+
+      const customer = await response.json();
       res.json(customer);
     } catch (error) {
       console.error("Error creating customer:", error);
@@ -349,17 +365,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
-      // In a real implementation, create payment intent with Airwallex API
-      // For now, return mock data structure
-      const paymentIntent = {
-        id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        client_secret: `pi_cs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      // Create payment intent using Airwallex demo API
+      const intentData = {
+        request_id: `req_${Date.now()}_${userId}`,
         amount: Math.round(amount * 100), // Convert to cents
         currency: currency,
         customer_id: customer_id,
-        status: 'requires_payment_method'
+        merchant_order_id: `order_${Date.now()}_${userId}`,
+        order: {
+          products: [{
+            name: '心理咨询服务',
+            desc: '专业心理咨询师一对一咨询服务',
+            sku: 'counseling-session',
+            type: 'service',
+            unit_price: Math.round(amount * 100),
+            quantity: 1
+          }]
+        }
       };
 
+      const response = await fetch('https://api-demo.airwallex.com/api/v1/pa/payment_intents/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer 3e865751b89d8fd0da82e564f7397da915e6c1beb0a54256d2ed55475220318eda7cc1c2290eb49a86ab74bb623c2406'
+        },
+        body: JSON.stringify(intentData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Airwallex payment intent creation error:', response.status, errorText);
+        throw new Error(`Airwallex API error: ${response.status}`);
+      }
+
+      const paymentIntent = await response.json();
       res.json(paymentIntent);
     } catch (error) {
       console.error("Error creating payment intent:", error);
