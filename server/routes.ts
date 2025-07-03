@@ -360,15 +360,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create customer using Airwallex demo API
+      // Create customer using Airwallex API with all required fields
       const customerData = {
         request_id: `req_${Date.now()}_${userId}`,
         merchant_customer_id: userId,
         first_name: user.firstName || 'Client',
         last_name: user.lastName || 'User',
-        email: user.email,
-        phone_number: '+86 1234567890'
+        email: user.email
       };
+
+      console.log('Creating Airwallex customer with data:', customerData);
 
       let customer;
       try {
