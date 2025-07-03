@@ -50,9 +50,9 @@ export default function BookingSuccess() {
     );
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -60,9 +60,9 @@ export default function BookingSuccess() {
     });
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('zh-CN', {
+  const formatTime = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -128,7 +128,7 @@ export default function BookingSuccess() {
               </div>
 
               <div className="flex items-center space-x-3">
-                <span className="text-lg font-bold text-primary">¥{(appointment.price / 100).toFixed(2)}</span>
+                <span className="text-lg font-bold text-primary">¥{appointment.price}</span>
                 <Badge variant="outline" className="text-green-600 border-green-600">
                   已支付
                 </Badge>
@@ -147,8 +147,8 @@ export default function BookingSuccess() {
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-3">
                 <img
-                  src={appointment.therapist.user.profileImageUrl || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face'}
-                  alt={appointment.therapist.user.firstName}
+                  src={appointment.therapist.user.profileImageUrl ?? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face'}
+                  alt={appointment.therapist.user.firstName || '咨询师'}
                   className="w-12 h-12 rounded-full object-cover"
                 />
                 <div>
@@ -161,7 +161,7 @@ export default function BookingSuccess() {
 
               <div className="space-y-2">
                 <p className="text-sm text-neutral-600">
-                  <strong>专业领域：</strong>{appointment.therapist.specialty}
+                  <strong>专业领域：</strong>{appointment.therapist.specialties?.join(', ') || '暂无'}
                 </p>
                 <p className="text-sm text-neutral-600">
                   <strong>从业经验：</strong>{appointment.therapist.experience}年
