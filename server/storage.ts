@@ -4,6 +4,7 @@ import {
   appointments,
   reviews,
   availability,
+  airwallexCustomers,
   type User,
   type UpsertUser,
   type Therapist,
@@ -17,6 +18,8 @@ import {
   type ReviewWithDetails,
   type InsertAvailability,
   type Availability,
+  type AirwallexCustomer,
+  type InsertAirwallexCustomer,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, avg, count } from "drizzle-orm";
@@ -59,6 +62,11 @@ export interface IStorage {
   getReviews(therapistId?: number): Promise<ReviewWithDetails[]>;
   createReview(review: InsertReview): Promise<Review>;
   updateTherapistRating(therapistId: number): Promise<void>;
+
+  // Airwallex customer operations
+  getAirwallexCustomerByUserId(userId: string): Promise<AirwallexCustomer | undefined>;
+  createAirwallexCustomer(customer: InsertAirwallexCustomer): Promise<AirwallexCustomer>;
+  updateAirwallexCustomer(userId: string, airwallexCustomerId: string): Promise<AirwallexCustomer>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -336,6 +344,35 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(therapists.id, therapistId));
     }
+  }
+
+  // Airwallex customer operations
+  async getAirwallexCustomerByUserId(userId: string): Promise<AirwallexCustomer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(airwallexCustomers)
+      .where(eq(airwallexCustomers.userId, userId));
+    return customer;
+  }
+
+  async createAirwallexCustomer(customer: InsertAirwallexCustomer): Promise<AirwallexCustomer> {
+    const [result] = await db
+      .insert(airwallexCustomers)
+      .values(customer)
+      .returning();
+    return result;
+  }
+
+  async updateAirwallexCustomer(userId: string, airwallexCustomerId: string): Promise<AirwallexCustomer> {
+    const [result] = await db
+      .update(airwallexCustomers)
+      .set({
+        airwallexCustomerId,
+        updatedAt: new Date()
+      })
+      .where(eq(airwallexCustomers.userId, userId))
+      .returning();
+    return result;
   }
 }
 

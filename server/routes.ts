@@ -347,6 +347,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // Check if we already have customer mapping in database
+      const existingMapping = await storage.getAirwallexCustomerByUserId(userId);
+      if (existingMapping) {
+        console.log('Found existing customer mapping in database:', existingMapping.airwallexCustomerId);
+        return res.json({
+          id: existingMapping.airwallexCustomerId,
+          merchant_customer_id: existingMapping.merchantCustomerId,
+          email: user.email,
+          first_name: user.firstName || 'Client',
+          last_name: user.lastName || 'User'
+        });
+      }
+
       // Create customer using Airwallex demo API
       const customerData = {
         request_id: `req_${Date.now()}_${userId}`,
@@ -378,8 +391,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (response.status === 400 && errorData.code === 'resource_already_exists') {
             console.log('Customer already exists, retrieving existing customer...');
             
-            // Use GET /api/v1/pa/customers/{merchant_customer_id} to get the existing customer
-            const getCustomerResponse = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/${userId}`, {
+            // Use GET /api/v1/pa/customers with merchant_customer_id query to get the existing customer
+            const getCustomerResponse = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers?merchant_customer_id=${userId}`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -393,7 +406,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(`Failed to retrieve existing customer: ${getCustomerResponse.status}`);
             }
 
-            customer = await getCustomerResponse.json();
+            const queryResult = await getCustomerResponse.json();
+            if (queryResult.items && queryResult.items.length > 0) {
+              customer = queryResult.items[0];
+              console.log('Found existing customer:', customer.id);
+            } else {
+              throw new Error('Customer exists but not found in query results');
+            }
           } else {
             console.error('Airwallex customer creation error:', response.status, JSON.stringify(errorData));
             throw new Error(`Airwallex API error: ${response.status}`);
@@ -402,7 +421,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customer = await response.json();
         }
 
-        customer = await response.json();
+        // Store the customer mapping in database for future use
+        try {
+          await storage.createAirwallexCustomer({
+            userId,
+            merchantCustomerId: userId,
+            airwallexCustomerId: customer.id
+          });
+          console.log('Stored customer mapping in database');
+        } catch (dbError) {
+          console.warn('Failed to store customer mapping:', dbError);
+        }
       } catch (airwallexError) {
         console.warn('Airwallex API failed, using mock customer data:', airwallexError);
         // Fallback to mock customer data

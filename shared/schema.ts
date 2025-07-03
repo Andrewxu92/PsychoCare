@@ -39,6 +39,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Airwallex customer mapping table
+export const airwallexCustomers = pgTable("airwallex_customers", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  merchantCustomerId: varchar("merchant_customer_id").notNull(),
+  airwallexCustomerId: varchar("airwallex_customer_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Therapist profiles
 export const therapists = pgTable("therapists", {
   id: serial("id").primaryKey(),
@@ -179,6 +189,12 @@ export const insertAvailabilitySchema = createInsertSchema(availability).omit({
   id: true,
 });
 
+export const insertAirwallexCustomerSchema = createInsertSchema(airwallexCustomers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -190,6 +206,8 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertAvailability = z.infer<typeof insertAvailabilitySchema>;
 export type Availability = typeof availability.$inferSelect;
+export type InsertAirwallexCustomer = z.infer<typeof insertAirwallexCustomerSchema>;
+export type AirwallexCustomer = typeof airwallexCustomers.$inferSelect;
 
 // Extended types with relations
 export type TherapistWithUser = Therapist & { user: User };
