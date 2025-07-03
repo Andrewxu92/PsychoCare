@@ -145,6 +145,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       // Add event listeners
       element.on('ready', (event: any) => {
         console.log('Airwallex drop-in element is ready', event.detail);
+        // The element is ready, so we can show it
         setIsAirwallexLoaded(true);
       });
 
@@ -158,6 +159,14 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         setPaymentError(event.detail.error?.message || 'Payment failed');
         setIsProcessing(false);
       });
+
+      // Force set as loaded after mounting (as backup)
+      setTimeout(() => {
+        if (!isAirwallexLoaded) {
+          console.log('Force setting element as loaded after timeout');
+          setIsAirwallexLoaded(true);
+        }
+      }, 3000);
 
     } catch (error: any) {
       console.error('Failed to create drop-in element:', error);
@@ -291,6 +300,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
               className="min-h-[400px] mb-6"
               style={{ minHeight: '400px' }}
             >
+              {/* This container will be populated by the Airwallex drop-in element */}
               {/* Mock Payment Interface - only show if using mock data */}
               {paymentIntent?.id?.includes('mock') && (
                 <div className="p-6 border border-neutral-200 rounded-lg space-y-4">
