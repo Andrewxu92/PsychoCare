@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Navigation from "@/components/navigation";
 import BookingCalendar from "@/components/booking-calendar";
-import PaymentForm from "@/components/payment-form";
+import PaymentForm from "@/components/payment-form-simple";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";

@@ -31,7 +31,12 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
   // Initialize Airwallex payment system
   useEffect(() => {
-    initializePaymentSystem();
+    // Wait for component to mount and DOM to be ready
+    const timer = setTimeout(() => {
+      initializePaymentSystem();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const initializePaymentSystem = async () => {
@@ -123,23 +128,41 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
   const createDropInElement = async (intent: any, customer: any) => {
     try {
+      console.log('Creating drop-in element with parameters:', {
+        intent_id: intent.id,
+        client_secret: intent.client_secret ? '[PRESENT]' : '[MISSING]',
+        currency: intent.currency
+      });
+
+      // Ensure the container exists and is visible
+      const container = document.getElementById('airwallex-dropin-element');
+      if (!container) {
+        throw new Error('Drop-in container element not found');
+      }
+      console.log('Container found:', container);
+
+      // Verify SDK is properly initialized
+      if (!window.AirwallexComponentsSDK) {
+        throw new Error('AirwallexComponentsSDK is not available');
+      }
+
+      if (typeof window.AirwallexComponentsSDK.createElement !== 'function') {
+        throw new Error('createElement method is not available on AirwallexComponentsSDK');
+      }
+
       // Create drop-in element using AirwallexComponentsSDK
       const element = await window.AirwallexComponentsSDK.createElement('dropIn', {
         intent_id: intent.id,
         client_secret: intent.client_secret,
         currency: intent.currency,
-        // Optional: customize appearance
-        appearance: {
-          mode: 'light',
-          variables: {
-            colorBrand: '#3b82f6',
-          },
-        },
       });
 
+      console.log('Drop-in element created successfully');
+
       // Mount the element
-      console.log('Mounting drop-in element...');
+      console.log('Mounting drop-in element to container...');
       const domElement = element.mount('airwallex-dropin-element');
+      console.log('Element mounted, result:', domElement);
       dropInRef.current = element;
 
       // Add event listeners
@@ -170,6 +193,8 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
     } catch (error: any) {
       console.error('Failed to create drop-in element:', error);
+      console.error('Error details:', error.message, error.stack);
+      setPaymentError(`支付组件创建失败: ${error.message || '未知错误'}`);
       throw error;
     }
   };
@@ -297,10 +322,15 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
             {/* Airwallex Drop-in Element Container */}
             <div 
               id="airwallex-dropin-element" 
-              className="min-h-[400px] mb-6"
-              style={{ minHeight: '400px' }}
+              className="min-h-[400px] mb-6 border border-gray-200 rounded-lg p-4"
+              style={{ minHeight: '400px', display: 'block' }}
             >
               {/* This container will be populated by the Airwallex drop-in element */}
+              {!paymentIntent && (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">正在初始化支付系统...</p>
+                </div>
+              )}
               {/* Mock Payment Interface - only show if using mock data */}
               {paymentIntent?.id?.includes('mock') && (
                 <div className="p-6 border border-neutral-200 rounded-lg space-y-4">
