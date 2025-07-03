@@ -9,6 +9,7 @@ interface PaymentFormProps {
   amount: number;
   appointmentData?: any;
   onPaymentSuccess: (result?: any) => void;
+  onPaymentFailure?: () => void;
   isLoading?: boolean;
 }
 
@@ -18,7 +19,7 @@ declare global {
   }
 }
 
-export default function PaymentForm({ amount, appointmentData, onPaymentSuccess, isLoading = false }: PaymentFormProps) {
+export default function PaymentForm({ amount, appointmentData, onPaymentSuccess, onPaymentFailure, isLoading = false }: PaymentFormProps) {
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [paymentError, setPaymentError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -139,6 +140,10 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         console.error('Payment error:', event.detail);
         setPaymentError(event.detail.error?.message || 'Payment failed');
         setIsProcessing(false);
+        // 调用失败回调
+        if (onPaymentFailure) {
+          onPaymentFailure();
+        }
       });
 
     } catch (error: any) {
