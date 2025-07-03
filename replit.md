@@ -132,6 +132,7 @@ Changelog:
 - July 03, 2025. Created custom login system with email/phone and password/verification code options
 - July 03, 2025. Added demo user accounts for testing (client and therapist roles)
 - July 03, 2025. Populated database with sample therapist data, appointments, and reviews
+- July 03, 2025. Enhanced Airwallex token management with automatic retry on 401 errors and race condition protection
 ```
 
 ## User Preferences
