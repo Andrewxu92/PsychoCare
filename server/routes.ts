@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
-import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema } from "@shared/schema";
+import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema } from "@shared/schema";
 import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -104,6 +104,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating therapist:", error);
       res.status(500).json({ message: "Failed to update therapist profile" });
+    }
+  });
+
+  // Therapist credential routes
+  app.get('/api/therapists/:id/credentials', isAuthenticated, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Check if therapist belongs to user
+      const therapist = await storage.getTherapistById(therapistId);
+      if (!therapist || therapist.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const credentials = await storage.getTherapistCredentials(therapistId);
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching credentials:", error);
+      res.status(500).json({ message: "Failed to fetch credentials" });
+    }
+  });
+
+  app.post('/api/therapists/:id/credentials', isAuthenticated, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Check if therapist belongs to user
+      const therapist = await storage.getTherapistById(therapistId);
+      if (!therapist || therapist.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const credentialData = insertTherapistCredentialSchema.parse({
+        ...req.body,
+        therapistId
+      });
+      
+      const credential = await storage.createTherapistCredential(credentialData);
+      res.status(201).json(credential);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating credential:", error);
+      res.status(500).json({ message: "Failed to create credential" });
+    }
+  });
+
+  app.put('/api/therapists/:id/credentials/:credentialId', isAuthenticated, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.id);
+      const credentialId = parseInt(req.params.credentialId);
+      const userId = req.user.claims.sub;
+      
+      // Check if therapist belongs to user
+      const therapist = await storage.getTherapistById(therapistId);
+      if (!therapist || therapist.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const updates = insertTherapistCredentialSchema.partial().parse(req.body);
+      const updatedCredential = await storage.updateTherapistCredential(credentialId, updates);
+      res.json(updatedCredential);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating credential:", error);
+      res.status(500).json({ message: "Failed to update credential" });
+    }
+  });
+
+  app.delete('/api/therapists/:id/credentials/:credentialId', isAuthenticated, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.id);
+      const credentialId = parseInt(req.params.credentialId);
+      const userId = req.user.claims.sub;
+      
+      // Check if therapist belongs to user
+      const therapist = await storage.getTherapistById(therapistId);
+      if (!therapist || therapist.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      await storage.deleteTherapistCredential(credentialId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting credential:", error);
+      res.status(500).json({ message: "Failed to delete credential" });
     }
   });
 

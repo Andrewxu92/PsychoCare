@@ -5,6 +5,7 @@ import {
   reviews,
   availability,
   airwallexCustomers,
+  therapistCredentials,
   type User,
   type UpsertUser,
   type Therapist,
@@ -20,6 +21,8 @@ import {
   type Availability,
   type AirwallexCustomer,
   type InsertAirwallexCustomer,
+  type TherapistCredential,
+  type InsertTherapistCredential,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, avg, count } from "drizzle-orm";
@@ -67,6 +70,12 @@ export interface IStorage {
   getAirwallexCustomerByUserId(userId: string): Promise<AirwallexCustomer | undefined>;
   createAirwallexCustomer(customer: InsertAirwallexCustomer): Promise<AirwallexCustomer>;
   updateAirwallexCustomer(userId: string, airwallexCustomerId: string): Promise<AirwallexCustomer>;
+
+  // Therapist credential operations
+  getTherapistCredentials(therapistId: number): Promise<TherapistCredential[]>;
+  createTherapistCredential(credential: InsertTherapistCredential): Promise<TherapistCredential>;
+  updateTherapistCredential(id: number, updates: Partial<InsertTherapistCredential>): Promise<TherapistCredential>;
+  deleteTherapistCredential(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -369,6 +378,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(airwallexCustomers.userId, userId))
       .returning();
     return result;
+  }
+
+  // Therapist credential operations
+  async getTherapistCredentials(therapistId: number): Promise<TherapistCredential[]> {
+    return await db.select()
+      .from(therapistCredentials)
+      .where(eq(therapistCredentials.therapistId, therapistId))
+      .orderBy(desc(therapistCredentials.createdAt));
+  }
+
+  async createTherapistCredential(credentialData: InsertTherapistCredential): Promise<TherapistCredential> {
+    const [credential] = await db.insert(therapistCredentials)
+      .values(credentialData)
+      .returning();
+    return credential;
+  }
+
+  async updateTherapistCredential(id: number, updates: Partial<InsertTherapistCredential>): Promise<TherapistCredential> {
+    const [credential] = await db.update(therapistCredentials)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(therapistCredentials.id, id))
+      .returning();
+    return credential;
+  }
+
+  async deleteTherapistCredential(id: number): Promise<void> {
+    await db.delete(therapistCredentials)
+      .where(eq(therapistCredentials.id, id));
   }
 }
 

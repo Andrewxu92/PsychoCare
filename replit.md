@@ -125,6 +125,10 @@ Changelog:
 - July 03, 2025. Removed prefilled payment data and added multiple payment method options
 - July 03, 2025. Implemented complete customer management system with database mapping
 - July 03, 2025. Fixed customer query logic to use existing customer IDs for payment intents
+- July 03, 2025. Added therapist registration system with credential verification
+- July 03, 2025. Implemented therapist dashboard for appointment management
+- July 03, 2025. Added therapist credentials database table for qualification verification
+- July 03, 2025. Extended API routes for therapist credential management
 ```
 
 ## User Preferences

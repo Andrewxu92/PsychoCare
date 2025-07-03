@@ -60,6 +60,18 @@ export default function Navigation() {
                       个人中心
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/therapist-registration">
+                      <Heart className="mr-2 h-4 w-4" />
+                      成为咨询师
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/therapist-dashboard">
+                      <User className="mr-2 h-4 w-4" />
+                      咨询师管理台
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => window.location.href = "/api/logout"}>
                     退出登录
                   </DropdownMenuItem>
