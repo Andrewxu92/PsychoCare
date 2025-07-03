@@ -674,6 +674,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Demo login endpoints
+  app.post("/api/auth/demo-login", async (req, res) => {
+    try {
+      const { emailOrPhone, password, verificationCode } = req.body;
+      
+      // Demo users
+      const demoUsers = [
+        {
+          id: "demo_client_001",
+          email: "client@demo.com",
+          phone: "13800138001",
+          password: "demo123",
+          firstName: "张",
+          lastName: "三",
+          profileImageUrl: null,
+          role: "client"
+        },
+        {
+          id: "demo_therapist_001", 
+          email: "therapist@demo.com",
+          phone: "13800138002",
+          password: "demo123",
+          firstName: "李",
+          lastName: "医生",
+          profileImageUrl: null,
+          role: "therapist"
+        }
+      ];
+
+      // Find user by email or phone
+      const user = demoUsers.find(u => 
+        u.email === emailOrPhone || u.phone === emailOrPhone
+      );
+
+      if (!user) {
+        return res.status(401).json({ message: "用户不存在" });
+      }
+
+      // Validate password or verification code
+      if (password && user.password !== password) {
+        return res.status(401).json({ message: "密码错误" });
+      }
+
+      if (verificationCode && verificationCode !== "123456") {
+        return res.status(401).json({ message: "验证码错误" });
+      }
+
+      // Create or update user in database
+      const dbUser = await storage.upsertUser({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+      });
+
+      // Set session
+      (req.session as any).userId = user.id;
+      req.session.save();
+
+      res.json({ user: dbUser, message: "登录成功" });
+    } catch (error) {
+      console.error("Demo login error:", error);
+      res.status(500).json({ message: "登录失败" });
+    }
+  });
+
+  app.post("/api/auth/send-code", async (req, res) => {
+    try {
+      const { emailOrPhone } = req.body;
+      
+      // Mock sending verification code
+      console.log(`Sending verification code to ${emailOrPhone}: 123456`);
+      
+      res.json({ message: "验证码已发送", code: "123456" }); // In production, don't send actual code
+    } catch (error) {
+      console.error("Send code error:", error);
+      res.status(500).json({ message: "发送验证码失败" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

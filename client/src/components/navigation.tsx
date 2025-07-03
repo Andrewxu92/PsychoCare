@@ -79,12 +79,16 @@ export default function Navigation() {
               </DropdownMenu>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => window.location.href = "/api/login"}>
-                  登录
-                </Button>
-                <Button onClick={() => window.location.href = "/api/login"}>
-                  注册
-                </Button>
+                <Link href="/login">
+                  <Button variant="ghost">
+                    登录
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button>
+                    注册
+                  </Button>
+                </Link>
               </>
             )}
 
