@@ -39,13 +39,18 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       setIsInitializing(true);
       console.log('Starting payment initialization...');
 
-      // Step 1: Load Airwallex Components SDK
+      // Step 1: Get Airwallex configuration from backend
+      const configRes = await apiRequest('GET', '/api/airwallex/config');
+      const config = await configRes.json();
+      console.log('Airwallex config loaded:', { environment: config.environment });
+
+      // Step 2: Load Airwallex Components SDK
       await loadAirwallexSDK();
 
-      // Step 2: Initialize Airwallex Components SDK
+      // Step 3: Initialize Airwallex Components SDK
       console.log('Initializing Airwallex Components SDK...');
       await window.AirwallexComponentsSDK.init({
-        env: 'demo', // Use demo environment
+        env: config.environment, // Use configured environment
         enabledElements: ['payments'],
       });
 
@@ -297,24 +302,22 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        卡号
+                        卡号 *
                       </label>
                       <input
                         type="text"
-                        value="4111 1111 1111 1111"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
-                        disabled
+                        placeholder="1234 5678 9012 3456"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        有效期
+                        有效期 *
                       </label>
                       <input
                         type="text"
-                        value="12/25"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
-                        disabled
+                        placeholder="MM/YY"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -322,31 +325,47 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        CVC
+                        CVC *
                       </label>
                       <input
                         type="text"
-                        value="123"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
-                        disabled
+                        placeholder="123"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        持卡人姓名
+                        持卡人姓名 *
                       </label>
                       <input
                         type="text"
-                        value="演示用户"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
-                        disabled
+                        placeholder="请输入持卡人姓名"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 mt-6">
+                    <h4 className="text-sm font-medium text-neutral-700">其他支付方式</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button className="p-3 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50 focus:ring-2 focus:ring-primary">
+                        💳 信用卡
+                      </button>
+                      <button className="p-3 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50 focus:ring-2 focus:ring-primary">
+                        📱 支付宝
+                      </button>
+                      <button className="p-3 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50 focus:ring-2 focus:ring-primary">
+                        💚 微信支付
+                      </button>
+                      <button className="p-3 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50 focus:ring-2 focus:ring-primary">
+                        🏦 银行转账
+                      </button>
                     </div>
                   </div>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                     <p className="text-blue-800 text-sm">
-                      💳 演示模式：所有字段已预填，点击下方"确认支付"按钮即可完成模拟支付
+                      💳 演示模式：请填写支付信息，点击下方"确认支付"按钮完成模拟支付
                     </p>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema } from "@shared/schema";
+import { airwallexConfig, frontendAirwallexConfig } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -312,6 +313,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Airwallex configuration endpoint
+  app.get('/api/airwallex/config', (req, res) => {
+    res.json(frontendAirwallexConfig);
+  });
+
   // Payment routes for Airwallex integration
   app.post('/api/payments/customer', isAuthenticated, async (req: any, res) => {
     try {
@@ -334,11 +340,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let customer;
       try {
-        const response = await fetch('https://api-demo.airwallex.com/api/v1/pa/customers/create', {
+        const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer 3e865751b89d8fd0da82e564f7397da915e6c1beb0a54256d2ed55475220318eda7cc1c2290eb49a86ab74bb623c2406'
+            'Authorization': `Bearer ${airwallexConfig.apiKey}`
           },
           body: JSON.stringify(customerData)
         });
@@ -399,11 +405,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let paymentIntent;
       try {
-        const response = await fetch('https://api-demo.airwallex.com/api/v1/pa/payment_intents/create', {
+        const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/payment_intents/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer 3e865751b89d8fd0da82e564f7397da915e6c1beb0a54256d2ed55475220318eda7cc1c2290eb49a86ab74bb623c2406'
+            'Authorization': `Bearer ${airwallexConfig.apiKey}`
           },
           body: JSON.stringify(intentData)
         });
@@ -452,10 +458,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (paymentResult.status === 'succeeded' && appointment_data) {
         const userId = req.user.claims.sub;
         const appointmentData = insertAppointmentSchema.parse({
-          ...appointment_data,
           clientId: userId,
+          therapistId: appointment_data.therapistId,
+          appointmentDate: new Date(appointment_data.appointmentDate),
+          duration: appointment_data.duration || 60,
+          consultationType: appointment_data.consultationType,
           status: 'confirmed',
-          paymentStatus: 'paid'
+          clientNotes: appointment_data.clientNotes || '',
+          paymentStatus: 'paid',
+          totalAmount: appointment_data.price
         });
         
         const appointment = await storage.createAppointment(appointmentData);
