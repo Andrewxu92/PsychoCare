@@ -380,6 +380,7 @@ export default function Booking() {
                 {currentStep === 'payment' && therapist && bookingData.appointmentDate && (
                   <PaymentForm
                     amount={Number(therapist.hourlyRate)}
+                    appointmentData={bookingData}
                     onPaymentSuccess={handleConfirmBooking}
                     isLoading={createAppointmentMutation.isPending}
                   />

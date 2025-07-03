@@ -313,6 +313,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment routes for Airwallex integration
+  app.post('/api/payments/customer', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // In a real implementation, create customer with Airwallex API
+      // For now, return mock data structure
+      const customer = {
+        id: `cus_${userId}`,
+        client_secret: `cs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        email: user.email,
+        first_name: user.firstName,
+        last_name: user.lastName
+      };
+
+      res.json(customer);
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  app.post('/api/payments/intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { amount, currency = 'CNY', customer_id } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      // In a real implementation, create payment intent with Airwallex API
+      // For now, return mock data structure
+      const paymentIntent = {
+        id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        client_secret: `pi_cs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: currency,
+        customer_id: customer_id,
+        status: 'requires_payment_method'
+      };
+
+      res.json(paymentIntent);
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment intent" });
+    }
+  });
+
+  app.post('/api/payments/confirm', isAuthenticated, async (req: any, res) => {
+    try {
+      const { payment_intent_id, appointment_data } = req.body;
+      
+      // In a real implementation, confirm payment with Airwallex API
+      // For development, simulate successful payment
+      const paymentResult = {
+        id: payment_intent_id,
+        status: 'succeeded',
+        amount_received: appointment_data?.price ? Math.round(appointment_data.price * 100) : 0,
+        currency: 'CNY'
+      };
+
+      // If payment successful and appointment data provided, create appointment
+      if (paymentResult.status === 'succeeded' && appointment_data) {
+        const userId = req.user.claims.sub;
+        const appointmentData = insertAppointmentSchema.parse({
+          ...appointment_data,
+          clientId: userId,
+          status: 'confirmed',
+          paymentStatus: 'paid'
+        });
+        
+        const appointment = await storage.createAppointment(appointmentData);
+        
+        res.json({
+          payment: paymentResult,
+          appointment: appointment
+        });
+      } else {
+        res.json({ payment: paymentResult });
+      }
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
