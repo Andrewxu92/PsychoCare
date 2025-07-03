@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart, Calendar, Shield, Users, Star } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Landing() {
   return (
@@ -14,12 +15,16 @@ export default function Landing() {
               <span className="text-xl font-bold text-neutral-800">心理咨询平台</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => window.location.href = "/api/login"}>
-                登录
-              </Button>
-              <Button onClick={() => window.location.href = "/api/login"}>
-                注册
-              </Button>
+              <Link href="/login">
+                <Button variant="ghost">
+                  登录
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button>
+                  注册
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -38,12 +43,16 @@ export default function Landing() {
                 连接您与专业心理咨询师，提供安全、私密、专业的心理健康服务。支持在线预约，灵活选择时间。
               </p>
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <Button size="lg" onClick={() => window.location.href = "/api/login"}>
-                  立即预约咨询
-                </Button>
-                <Button variant="outline" size="lg" onClick={() => window.location.href = "/api/login"}>
-                  浏览咨询师
-                </Button>
+                <Link href="/login">
+                  <Button size="lg">
+                    立即预约咨询
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button variant="outline" size="lg">
+                    浏览咨询师
+                  </Button>
+                </Link>
               </div>
               <div className="flex items-center space-x-8 mt-8">
                 <div className="text-center">
