@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema } from "@shared/schema";
-import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
+import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken, makeAirwallexRequest } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -485,15 +485,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let customer;
       try {
-        // Get access token first
-        const accessToken = await getAirwallexAccessToken();
-        
-        const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/create`, {
+        // Use the new secure API call method
+        const response = await makeAirwallexRequest('/api/v1/pa/customers/create', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
           body: JSON.stringify(customerData)
         });
 
@@ -505,12 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('Customer already exists, retrieving existing customer...');
             
             // Use GET /api/v1/pa/customers with merchant_customer_id query to get the existing customer
-            const getCustomerResponse = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers?merchant_customer_id=${userId}`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              }
+            const getCustomerResponse = await makeAirwallexRequest(`/api/v1/pa/customers?merchant_customer_id=${userId}`, {
+              method: 'GET'
             });
 
             if (!getCustomerResponse.ok) {
@@ -607,15 +597,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let paymentIntent;
       try {
-        // Get access token first
-        const accessToken = await getAirwallexAccessToken();
-        
-        const response = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/payment_intents/create`, {
+        // Use the new secure API call method
+        const response = await makeAirwallexRequest('/api/v1/pa/payment_intents/create', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
           body: JSON.stringify(intentData)
         });
 
