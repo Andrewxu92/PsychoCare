@@ -119,6 +119,10 @@ This is a full-stack web application for a psychology counseling platform built 
 ```
 Changelog:
 - July 02, 2025. Initial setup
+- July 03, 2025. Implemented proper Airwallex authentication flow with access token caching
+- July 03, 2025. Fixed payment integration to use x-client-id and x-api-key headers
+- July 03, 2025. Added customer existence handling for existing Airwallex customers
+- July 03, 2025. Removed prefilled payment data and added multiple payment method options
 ```
 
 ## User Preferences

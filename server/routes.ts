@@ -373,11 +373,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Airwallex customer creation error:', response.status, errorText);
-          throw new Error(`Airwallex API error: ${response.status}`);
+          const errorData = JSON.parse(errorText);
+          
+          // If customer already exists, get the existing customer
+          if (response.status === 400 && errorData.code === 'resource_already_exists') {
+            console.log('Customer already exists, retrieving existing customer...');
+            
+            // Get existing customer
+            const accessToken = await getAirwallexAccessToken();
+            const getCustomerResponse = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/${userId}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
+            });
+            
+            if (getCustomerResponse.ok) {
+              customer = await getCustomerResponse.json();
+              console.log('Retrieved existing customer:', customer.id);
+            } else {
+              throw new Error(`Failed to retrieve existing customer: ${getCustomerResponse.status}`);
+            }
+          } else {
+            console.error('Airwallex customer creation error:', response.status, errorText);
+            throw new Error(`Airwallex API error: ${response.status}`);
+          }
+        } else {
+          customer = await response.json();
         }
-
-        customer = await response.json();
       } catch (airwallexError) {
         console.warn('Airwallex API failed, using mock customer data:', airwallexError);
         // Fallback to mock customer data
@@ -400,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/payments/intent', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { amount, currency = 'CNY', customer_id } = req.body;
+      const { amount, currency = 'HKD', customer_id } = req.body;
 
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
