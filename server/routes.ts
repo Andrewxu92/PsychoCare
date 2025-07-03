@@ -372,23 +372,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          const errorData = JSON.parse(errorText);
+          const errorData = await response.json();
           
-          // If customer already exists, that's actually fine - we can use the existing one
+          // If customer already exists, retrieve the existing customer using merchant_customer_id
           if (response.status === 400 && errorData.code === 'resource_already_exists') {
-            console.log('Customer already exists, this is expected. Using existing customer ID.');
-            // Use the merchant_customer_id as the customer ID for existing customers
-            customer = {
-              id: `cus_${userId}`, // Simplified customer ID format
-              client_secret: `cs_existing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              email: user.email,
-              first_name: user.firstName || 'Client',
-              last_name: user.lastName || 'User',
-              merchant_customer_id: userId
-            };
+            console.log('Customer already exists, retrieving existing customer...');
+            
+            // Use GET /api/v1/pa/customers/{merchant_customer_id} to get the existing customer
+            const getCustomerResponse = await fetch(`${airwallexConfig.apiUrl}/api/v1/pa/customers/${userId}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!getCustomerResponse.ok) {
+              const getErrorText = await getCustomerResponse.text();
+              console.error('Failed to retrieve existing customer:', getCustomerResponse.status, getErrorText);
+              throw new Error(`Failed to retrieve existing customer: ${getCustomerResponse.status}`);
+            }
+
+            customer = await getCustomerResponse.json();
           } else {
-            console.error('Airwallex customer creation error:', response.status, errorText);
+            console.error('Airwallex customer creation error:', response.status, JSON.stringify(errorData));
             throw new Error(`Airwallex API error: ${response.status}`);
           }
         } else {
