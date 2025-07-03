@@ -68,11 +68,13 @@ export default function Booking() {
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
-      await apiRequest('POST', '/api/appointments', appointmentData);
+      const response = await apiRequest('POST', '/api/appointments', appointmentData);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (appointment) => {
       queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
-      setCurrentStep('confirmation');
+      // 跳转到预约成功页面
+      setLocation(`/booking-success/${appointment.id}`);
       toast({
         title: "预约成功",
         description: "您的咨询预约已成功创建，请等待咨询师确认。",
@@ -168,6 +170,18 @@ export default function Booking() {
     } else if (currentStep === 'payment') {
       setCurrentStep('details');
     }
+  };
+
+  const handlePaymentSuccess = (paymentResult?: any) => {
+    console.log('Payment succeeded:', paymentResult);
+    // 支付成功后创建预约
+    handleConfirmBooking();
+  };
+
+  const handlePaymentFailure = () => {
+    console.log('Payment failed');
+    // 支付失败后跳转到失败页面
+    setLocation('/booking-failure');
   };
 
   const handleConfirmBooking = () => {
@@ -381,7 +395,8 @@ export default function Booking() {
                   <PaymentForm
                     amount={Number(therapist.hourlyRate)}
                     appointmentData={bookingData}
-                    onPaymentSuccess={handleConfirmBooking}
+                    onPaymentSuccess={handlePaymentSuccess}
+                    onPaymentFailure={handlePaymentFailure}
                     isLoading={createAppointmentMutation.isPending}
                   />
                 )}

@@ -10,6 +10,8 @@ import Home from "@/pages/home";
 import Therapists from "@/pages/therapists";
 import TherapistProfile from "@/pages/therapist-profile";
 import Booking from "@/pages/booking";
+import BookingSuccess from "@/pages/booking-success";
+import BookingFailure from "@/pages/booking-failure";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 
@@ -26,6 +28,8 @@ function Router() {
           <Route path="/therapists" component={Therapists} />
           <Route path="/therapists/:id" component={TherapistProfile} />
           <Route path="/booking/:therapistId?" component={Booking} />
+          <Route path="/booking-success/:appointmentId" component={BookingSuccess} />
+          <Route path="/booking-failure" component={BookingFailure} />
           <Route path="/dashboard" component={Dashboard} />
         </>
       )}
