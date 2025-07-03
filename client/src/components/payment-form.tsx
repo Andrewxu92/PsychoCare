@@ -44,15 +44,15 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       // Try to load Airwallex SDK, but fallback to mock if it fails
       let useRealAirwallex = false;
       try {
-        if (!window.Airwallex) {
+        if (!window.AirwallexComponentsSDK) {
           console.log('Loading Airwallex SDK...');
           await loadAirwallexSDK();
         }
         
-        console.log('Initializing Airwallex...');
-        await window.Airwallex.init({
+        console.log('Initializing Airwallex Components SDK...');
+        await window.AirwallexComponentsSDK.init({
           env: 'demo',
-          origin: window.location.origin,
+          enabledElements: ['payments'],
         });
         useRealAirwallex = true;
       } catch (sdkError) {
@@ -78,9 +78,14 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       console.log('Payment intent created:', intentResponse);
       setPaymentIntent(intentResponse);
 
-      if (useRealAirwallex) {
+      if (useRealAirwallex && intentResponse.id && !intentResponse.id.includes('mock')) {
         console.log('Creating real Airwallex drop-in element...');
-        createDropInElement(intentResponse, customerResponse);
+        try {
+          await createDropInElement(intentResponse, customerResponse);
+        } catch (dropInError) {
+          console.warn('Airwallex drop-in failed, falling back to mock:', dropInError);
+          createMockPaymentInterface();
+        }
       } else {
         console.log('Creating mock payment interface...');
         createMockPaymentInterface();
@@ -94,25 +99,24 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
   const loadAirwallexSDK = (): Promise<void> => {
     return new Promise((resolve, reject) => {
-      if (window.Airwallex) {
+      if (window.AirwallexComponentsSDK) {
         console.log('Airwallex SDK already loaded');
         resolve();
         return;
       }
 
-      console.log('Loading Airwallex SDK...');
+      console.log('Loading Airwallex Components SDK...');
       const script = document.createElement('script');
-      script.src = 'https://pci-api-sandbox.airwallex.com/assets/bundle.x.js';
+      script.src = 'https://static.airwallex.com/components/sdk/v1/index.js';
       script.async = true;
       script.onload = () => {
         console.log('Airwallex SDK loaded successfully');
         // Wait a bit for the SDK to initialize
         setTimeout(() => {
-          if (window.Airwallex) {
-            setIsAirwallexLoaded(true);
+          if (window.AirwallexComponentsSDK) {
             resolve();
           } else {
-            console.error('Airwallex SDK loaded but window.Airwallex is not available');
+            console.error('Airwallex SDK loaded but window.AirwallexComponentsSDK is not available');
             setPaymentError('支付系统初始化失败，请刷新页面重试');
             reject(new Error('Airwallex SDK not properly initialized'));
           }
@@ -128,36 +132,42 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
     });
   };
 
-  const createDropInElement = (intent: any, customer: any) => {
+  const createDropInElement = async (intent: any, customer: any) => {
     try {
-      // Create drop-in element with payment intent and demo client ID
-      const element = window.Airwallex.createElement('dropIn', {
+      // Create drop-in element using AirwallexComponentsSDK
+      const element = await window.AirwallexComponentsSDK.createElement('dropIn', {
         intent_id: intent.id,
         client_secret: intent.client_secret,
         currency: intent.currency,
-        customer_id: customer.id,
-        client_id: 'FgTDjfg9SEGV4vsliPYZzQ', // Demo client ID
-        mode: 'payment' // For one-time payment
+        // Optional: customize appearance
+        appearance: {
+          mode: 'light',
+          variables: {
+            colorBrand: '#3b82f6',
+          },
+        },
       });
 
       // Mount the element
-      element.mount('#airwallex-dropin-element');
+      const domElement = element.mount('airwallex-dropin-element'); // Note: no # prefix
       dropInRef.current = element;
 
       // Handle events
-      element.on('ready', () => {
-        console.log('Airwallex drop-in element is ready');
+      element.on('ready', (event: any) => {
+        console.log('Airwallex drop-in element is ready', event.detail);
         setIsAirwallexLoaded(true);
+        document.getElementById('airwallex-dropin-element')!.style.display = 'block';
       });
 
       element.on('error', (event: any) => {
-        console.error('Airwallex element error:', event);
-        setPaymentError(event.error?.message || '支付过程中出现错误');
+        console.error('Airwallex element error:', event.detail);
+        const error = event.detail?.error;
+        setPaymentError(error?.message || '支付过程中出现错误');
       });
 
       element.on('success', (event: any) => {
-        console.log('Payment successful:', event);
-        handlePaymentSuccess(event);
+        console.log('Payment successful:', event.detail);
+        handlePaymentSuccess(event.detail);
       });
 
     } catch (error) {
@@ -172,7 +182,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       return;
     }
 
-    if (!dropInRef.current || !paymentIntent) {
+    if (!paymentIntent) {
       setPaymentError('支付系统尚未准备就绪，请稍候重试');
       return;
     }
@@ -181,9 +191,10 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
     setIsProcessing(true);
 
     try {
-      // In development, simulate payment flow
-      if (import.meta.env.NODE_ENV === 'development') {
-        // Simulate payment processing
+      // Check if using mock payment system
+      if (paymentIntent.id?.includes('mock')) {
+        console.log('Processing mock payment...');
+        // Simulate payment processing delay
         setTimeout(async () => {
           await handlePaymentSuccess({
             payment_intent: {
@@ -195,8 +206,14 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         return;
       }
 
-      // In production, trigger Airwallex payment confirmation
-      // The actual payment confirmation will be handled by the 'success' event
+      // For real Airwallex payments
+      if (!dropInRef.current) {
+        setPaymentError('支付组件尚未加载，请稍候重试');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Trigger Airwallex payment confirmation
       await dropInRef.current.confirmPayment();
 
     } catch (error: any) {
@@ -272,10 +289,74 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
               {/* Airwallex Drop-in Element Container */}
               <div 
                 id="airwallex-dropin-element" 
-                className="min-h-[300px] rounded-lg"
+                className="min-h-[300px] rounded-lg border border-neutral-200"
                 style={{ minHeight: '300px' }}
               >
-                {/* Airwallex drop-in element will be mounted here */}
+                {/* Mock Payment Interface for demo environment */}
+                {paymentIntent?.id?.includes('mock') && (
+                  <div className="p-6 space-y-4">
+                    <div className="text-center mb-6">
+                      <h3 className="text-lg font-semibold text-neutral-900">演示支付界面</h3>
+                      <p className="text-sm text-neutral-600">这是演示环境，不会产生实际费用</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">
+                          卡号
+                        </label>
+                        <input
+                          type="text"
+                          value="4111 1111 1111 1111"
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
+                          disabled
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">
+                          有效期
+                        </label>
+                        <input
+                          type="text"
+                          value="12/25"
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
+                          disabled
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">
+                          CVC
+                        </label>
+                        <input
+                          type="text"
+                          value="123"
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
+                          disabled
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-2">
+                          持卡人姓名
+                        </label>
+                        <input
+                          type="text"
+                          value="演示用户"
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
+                          disabled
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                      <p className="text-blue-800 text-sm">
+                        💳 演示模式：所有字段已预填，点击下方"确认支付"按钮即可完成模拟支付
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Development info */}
@@ -373,5 +454,6 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 declare global {
   interface Window {
     Airwallex: any;
+    AirwallexComponentsSDK: any;
   }
 }
