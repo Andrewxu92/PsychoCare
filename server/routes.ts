@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/therapists', isAuthenticated, async (req: any, res) => {
+  app.post('/api/therapists', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -282,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/appointments/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/appointments/:id', customAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.user.claims.sub;
@@ -308,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/appointments', isAuthenticated, async (req: any, res) => {
+  app.post('/api/appointments', customAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -334,7 +334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/appointments/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/appointments/:id', customAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const userId = req.user.claims.sub;

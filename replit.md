@@ -133,6 +133,7 @@ Changelog:
 - July 03, 2025. Added demo user accounts for testing (client and therapist roles)
 - July 03, 2025. Populated database with sample therapist data, appointments, and reviews
 - July 03, 2025. Enhanced Airwallex token management with automatic retry on 401 errors and race condition protection
+- July 03, 2025. Removed OAuth authentication system, now using only custom demo login with session-based authentication
 ```
 
 ## User Preferences
