@@ -40,6 +40,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Logout route
+  app.get('/api/logout', (req: any, res) => {
+    if (req.session) {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+          return res.status(500).json({ message: 'Failed to logout' });
+        }
+        res.clearCookie('connect.sid'); // Clear the session cookie
+        res.redirect('/');
+      });
+    } else {
+      res.redirect('/');
+    }
+  });
+
   // Therapist routes
   app.get('/api/therapists', async (req, res) => {
     try {
