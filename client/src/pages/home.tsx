@@ -1,12 +1,38 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, Calendar, Users, Star, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
+import type { TherapistWithUser } from "@shared/schema";
 
 export default function Home() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Check if user is a therapist
+  const { data: therapists } = useQuery<TherapistWithUser[]>({
+    queryKey: ['/api/therapists'],
+    queryFn: async () => {
+      const response = await fetch('/api/therapists');
+      if (!response.ok) throw new Error('Failed to fetch therapists');
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  // Redirect therapist to therapist dashboard
+  useEffect(() => {
+    if (user && therapists) {
+      const isTherapist = therapists.some((t: TherapistWithUser) => t.userId === user.id);
+      if (isTherapist) {
+        navigate('/therapist-dashboard');
+      }
+    }
+  }, [user, therapists, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">

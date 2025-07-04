@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -7,11 +8,25 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, Menu, User } from "lucide-react";
+import { Heart, Menu, User, Settings } from "lucide-react";
 import { Link } from "wouter";
+import type { TherapistWithUser } from "@shared/schema";
 
 export default function Navigation() {
   const { user, isAuthenticated } = useAuth();
+
+  // Check if user is a therapist
+  const { data: therapists } = useQuery<TherapistWithUser[]>({
+    queryKey: ['/api/therapists'],
+    queryFn: async () => {
+      const response = await fetch('/api/therapists');
+      if (!response.ok) throw new Error('Failed to fetch therapists');
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const isTherapist = therapists?.some((t: TherapistWithUser) => t.userId === user?.id);
 
   return (
     <nav className="bg-white/80 backdrop-blur-sm border-b border-neutral-200 sticky top-0 z-50">
@@ -26,12 +41,14 @@ export default function Navigation() {
               <Link href="/" className="text-primary font-medium">
                 首页
               </Link>
-              <Link href="/therapists" className="text-neutral-600 hover:text-primary transition-colors">
-                咨询师
-              </Link>
+              {!isTherapist && (
+                <Link href="/therapists" className="text-neutral-600 hover:text-primary transition-colors">
+                  咨询师
+                </Link>
+              )}
               {isAuthenticated && (
-                <Link href="/dashboard" className="text-neutral-600 hover:text-primary transition-colors">
-                  我的预约
+                <Link href={isTherapist ? "/therapist-dashboard" : "/dashboard"} className="text-neutral-600 hover:text-primary transition-colors">
+                  {isTherapist ? "咨询师后台" : "我的预约"}
                 </Link>
               )}
             </div>
@@ -54,24 +71,37 @@ export default function Navigation() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
-                      <User className="mr-2 h-4 w-4" />
-                      个人中心
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/therapist-registration">
-                      <Heart className="mr-2 h-4 w-4" />
-                      成为咨询师
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/therapist-dashboard">
-                      <User className="mr-2 h-4 w-4" />
-                      咨询师管理台
-                    </Link>
-                  </DropdownMenuItem>
+                  {isTherapist ? (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/therapist-dashboard">
+                          <Settings className="mr-2 h-4 w-4" />
+                          咨询师后台
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard">
+                          <User className="mr-2 h-4 w-4" />
+                          个人资料
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard">
+                          <User className="mr-2 h-4 w-4" />
+                          个人中心
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/therapist-registration">
+                          <Heart className="mr-2 h-4 w-4" />
+                          成为咨询师
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem onClick={() => window.location.href = "/api/logout"}>
                     退出登录
                   </DropdownMenuItem>
