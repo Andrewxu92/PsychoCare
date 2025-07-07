@@ -140,4 +140,5 @@ Changelog:
 
 ```
 Preferred communication style: Simple, everyday language.
+Technology stack preference: JavaScript frontend + Java backend (requested January 7, 2025)
 ```
