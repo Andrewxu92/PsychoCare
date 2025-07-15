@@ -6,6 +6,9 @@ import {
   availability,
   airwallexCustomers,
   therapistCredentials,
+  therapistEarnings,
+  therapistBeneficiaries,
+  withdrawalRequests,
   type User,
   type UpsertUser,
   type Therapist,
@@ -23,6 +26,12 @@ import {
   type InsertAirwallexCustomer,
   type TherapistCredential,
   type InsertTherapistCredential,
+  type TherapistEarnings,
+  type InsertTherapistEarnings,
+  type TherapistBeneficiary,
+  type InsertTherapistBeneficiary,
+  type WithdrawalRequest,
+  type InsertWithdrawalRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, avg, count } from "drizzle-orm";
@@ -76,6 +85,33 @@ export interface IStorage {
   createTherapistCredential(credential: InsertTherapistCredential): Promise<TherapistCredential>;
   updateTherapistCredential(id: number, updates: Partial<InsertTherapistCredential>): Promise<TherapistCredential>;
   deleteTherapistCredential(id: number): Promise<void>;
+
+  // Wallet and earnings operations
+  getTherapistEarnings(therapistId: number, filters?: {
+    status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<TherapistEarnings[]>;
+  createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings>;
+  updateTherapistEarnings(id: number, updates: Partial<InsertTherapistEarnings>): Promise<TherapistEarnings>;
+  getTherapistWalletSummary(therapistId: number): Promise<{
+    totalEarnings: number;
+    availableBalance: number;
+    pendingAmount: number;
+    withdrawnAmount: number;
+  }>;
+
+  // Beneficiary operations
+  getTherapistBeneficiaries(therapistId: number): Promise<TherapistBeneficiary[]>;
+  createTherapistBeneficiary(beneficiary: InsertTherapistBeneficiary): Promise<TherapistBeneficiary>;
+  updateTherapistBeneficiary(id: number, updates: Partial<InsertTherapistBeneficiary>): Promise<TherapistBeneficiary>;
+  deleteTherapistBeneficiary(id: number): Promise<void>;
+  setDefaultBeneficiary(therapistId: number, beneficiaryId: number): Promise<void>;
+
+  // Withdrawal operations
+  getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]>;
+  createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
+  updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -406,6 +442,142 @@ export class DatabaseStorage implements IStorage {
   async deleteTherapistCredential(id: number): Promise<void> {
     await db.delete(therapistCredentials)
       .where(eq(therapistCredentials.id, id));
+  }
+
+  // Wallet and earnings operations
+  async getTherapistEarnings(therapistId: number, filters?: {
+    status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<TherapistEarnings[]> {
+    let query = db.select().from(therapistEarnings)
+      .where(eq(therapistEarnings.therapistId, therapistId));
+
+    if (filters?.status) {
+      query = query.where(and(
+        eq(therapistEarnings.therapistId, therapistId),
+        eq(therapistEarnings.status, filters.status)
+      ));
+    }
+
+    if (filters?.dateFrom && filters?.dateTo) {
+      query = query.where(and(
+        eq(therapistEarnings.therapistId, therapistId),
+        gte(therapistEarnings.earnedAt, filters.dateFrom),
+        lte(therapistEarnings.earnedAt, filters.dateTo)
+      ));
+    }
+
+    return await query.orderBy(desc(therapistEarnings.earnedAt));
+  }
+
+  async createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings> {
+    const [result] = await db.insert(therapistEarnings)
+      .values(earnings)
+      .returning();
+    return result;
+  }
+
+  async updateTherapistEarnings(id: number, updates: Partial<InsertTherapistEarnings>): Promise<TherapistEarnings> {
+    const [result] = await db.update(therapistEarnings)
+      .set(updates)
+      .where(eq(therapistEarnings.id, id))
+      .returning();
+    return result;
+  }
+
+  async getTherapistWalletSummary(therapistId: number): Promise<{
+    totalEarnings: number;
+    availableBalance: number;
+    pendingAmount: number;
+    withdrawnAmount: number;
+  }> {
+    const earnings = await db.select({
+      total: sql<number>`sum(${therapistEarnings.netAmount})`,
+      available: sql<number>`sum(case when ${therapistEarnings.status} = 'available' then ${therapistEarnings.netAmount} else 0 end)`,
+      pending: sql<number>`sum(case when ${therapistEarnings.status} = 'pending' then ${therapistEarnings.netAmount} else 0 end)`,
+      withdrawn: sql<number>`sum(case when ${therapistEarnings.status} = 'withdrawn' then ${therapistEarnings.netAmount} else 0 end)`
+    })
+    .from(therapistEarnings)
+    .where(eq(therapistEarnings.therapistId, therapistId));
+
+    const result = earnings[0];
+    return {
+      totalEarnings: Number(result.total) || 0,
+      availableBalance: Number(result.available) || 0,
+      pendingAmount: Number(result.pending) || 0,
+      withdrawnAmount: Number(result.withdrawn) || 0
+    };
+  }
+
+  // Beneficiary operations
+  async getTherapistBeneficiaries(therapistId: number): Promise<TherapistBeneficiary[]> {
+    return await db.select()
+      .from(therapistBeneficiaries)
+      .where(and(
+        eq(therapistBeneficiaries.therapistId, therapistId),
+        eq(therapistBeneficiaries.isActive, true)
+      ))
+      .orderBy(desc(therapistBeneficiaries.isDefault), desc(therapistBeneficiaries.createdAt));
+  }
+
+  async createTherapistBeneficiary(beneficiary: InsertTherapistBeneficiary): Promise<TherapistBeneficiary> {
+    const [result] = await db.insert(therapistBeneficiaries)
+      .values(beneficiary)
+      .returning();
+    return result;
+  }
+
+  async updateTherapistBeneficiary(id: number, updates: Partial<InsertTherapistBeneficiary>): Promise<TherapistBeneficiary> {
+    const [result] = await db.update(therapistBeneficiaries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(therapistBeneficiaries.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteTherapistBeneficiary(id: number): Promise<void> {
+    await db.update(therapistBeneficiaries)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(therapistBeneficiaries.id, id));
+  }
+
+  async setDefaultBeneficiary(therapistId: number, beneficiaryId: number): Promise<void> {
+    // First, unset all default flags for this therapist
+    await db.update(therapistBeneficiaries)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(eq(therapistBeneficiaries.therapistId, therapistId));
+
+    // Then set the specified beneficiary as default
+    await db.update(therapistBeneficiaries)
+      .set({ isDefault: true, updatedAt: new Date() })
+      .where(and(
+        eq(therapistBeneficiaries.id, beneficiaryId),
+        eq(therapistBeneficiaries.therapistId, therapistId)
+      ));
+  }
+
+  // Withdrawal operations
+  async getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]> {
+    return await db.select()
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.therapistId, therapistId))
+      .orderBy(desc(withdrawalRequests.createdAt));
+  }
+
+  async createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest> {
+    const [result] = await db.insert(withdrawalRequests)
+      .values(request)
+      .returning();
+    return result;
+  }
+
+  async updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest> {
+    const [result] = await db.update(withdrawalRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(withdrawalRequests.id, id))
+      .returning();
+    return result;
   }
 }
 

@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, Menu, User, Settings } from "lucide-react";
+import { Heart, Menu, User, Settings, Wallet } from "lucide-react";
 import { Link } from "wouter";
 import type { TherapistWithUser } from "@shared/schema";
 
@@ -77,6 +77,12 @@ export default function Navigation() {
                         <Link href="/therapist-dashboard">
                           <Settings className="mr-2 h-4 w-4" />
                           咨询师后台
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/therapist-wallet">
+                          <Wallet className="mr-2 h-4 w-4" />
+                          钱包管理
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

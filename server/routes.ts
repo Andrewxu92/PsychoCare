@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
-import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema } from "@shared/schema";
+import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema, insertTherapistEarningsSchema, insertTherapistBeneficiarySchema, insertWithdrawalRequestSchema } from "@shared/schema";
 import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken, makeAirwallexRequest } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -57,6 +57,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Therapist routes
+  app.get('/api/therapists/by-user/:userId', customAuth, async (req: any, res) => {
+    try {
+      const userId = req.params.userId;
+      const therapist = await storage.getTherapistByUserId(userId);
+      
+      if (!therapist) {
+        return res.status(404).json({ message: "Therapist not found" });
+      }
+      
+      res.json(therapist);
+    } catch (error) {
+      console.error("Error fetching therapist by user ID:", error);
+      res.status(500).json({ message: "Failed to fetch therapist" });
+    }
+  });
+
   app.get('/api/therapists', async (req, res) => {
     try {
       const { specialty, consultationType, priceMin, priceMax } = req.query;
@@ -767,6 +783,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Send code error:", error);
       res.status(500).json({ message: "发送验证码失败" });
+    }
+  });
+
+  // Wallet and earnings routes
+  app.get('/api/therapists/:therapistId/wallet/summary', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const summary = await storage.getTherapistWalletSummary(therapistId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching wallet summary:", error);
+      res.status(500).json({ message: "Failed to fetch wallet summary" });
+    }
+  });
+
+  app.get('/api/therapists/:therapistId/earnings', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      const { status, dateFrom, dateTo } = req.query;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const filters = {
+        status: status as string,
+        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+        dateTo: dateTo ? new Date(dateTo as string) : undefined,
+      };
+
+      const earnings = await storage.getTherapistEarnings(therapistId, filters);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching earnings:", error);
+      res.status(500).json({ message: "Failed to fetch earnings" });
+    }
+  });
+
+  app.post('/api/therapists/:therapistId/earnings', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const earningsData = insertTherapistEarningsSchema.parse({
+        ...req.body,
+        therapistId
+      });
+
+      const earnings = await storage.createTherapistEarnings(earningsData);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error creating earnings:", error);
+      res.status(500).json({ message: "Failed to create earnings" });
+    }
+  });
+
+  // Beneficiary routes
+  app.get('/api/therapists/:therapistId/beneficiaries', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const beneficiaries = await storage.getTherapistBeneficiaries(therapistId);
+      res.json(beneficiaries);
+    } catch (error) {
+      console.error("Error fetching beneficiaries:", error);
+      res.status(500).json({ message: "Failed to fetch beneficiaries" });
+    }
+  });
+
+  app.post('/api/therapists/:therapistId/beneficiaries', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const beneficiaryData = insertTherapistBeneficiarySchema.parse({
+        ...req.body,
+        therapistId
+      });
+
+      const beneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
+      res.json(beneficiary);
+    } catch (error) {
+      console.error("Error creating beneficiary:", error);
+      res.status(500).json({ message: "Failed to create beneficiary" });
+    }
+  });
+
+  app.put('/api/therapists/:therapistId/beneficiaries/:beneficiaryId', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const beneficiaryId = parseInt(req.params.beneficiaryId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const beneficiary = await storage.updateTherapistBeneficiary(beneficiaryId, req.body);
+      res.json(beneficiary);
+    } catch (error) {
+      console.error("Error updating beneficiary:", error);
+      res.status(500).json({ message: "Failed to update beneficiary" });
+    }
+  });
+
+  app.delete('/api/therapists/:therapistId/beneficiaries/:beneficiaryId', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const beneficiaryId = parseInt(req.params.beneficiaryId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteTherapistBeneficiary(beneficiaryId);
+      res.json({ message: "Beneficiary deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting beneficiary:", error);
+      res.status(500).json({ message: "Failed to delete beneficiary" });
+    }
+  });
+
+  app.put('/api/therapists/:therapistId/beneficiaries/:beneficiaryId/set-default', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const beneficiaryId = parseInt(req.params.beneficiaryId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.setDefaultBeneficiary(therapistId, beneficiaryId);
+      res.json({ message: "Default beneficiary set successfully" });
+    } catch (error) {
+      console.error("Error setting default beneficiary:", error);
+      res.status(500).json({ message: "Failed to set default beneficiary" });
+    }
+  });
+
+  // Withdrawal routes
+  app.get('/api/therapists/:therapistId/withdrawals', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const withdrawals = await storage.getWithdrawalRequests(therapistId);
+      res.json(withdrawals);
+    } catch (error) {
+      console.error("Error fetching withdrawals:", error);
+      res.status(500).json({ message: "Failed to fetch withdrawals" });
+    }
+  });
+
+  app.post('/api/therapists/:therapistId/withdrawals', customAuth, async (req: any, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const userId = req.user.claims.sub;
+      
+      // Verify therapist ownership
+      const therapist = await storage.getTherapistByUserId(userId);
+      if (!therapist || therapist.id !== therapistId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const withdrawalData = insertWithdrawalRequestSchema.parse({
+        ...req.body,
+        therapistId
+      });
+
+      const withdrawal = await storage.createWithdrawalRequest(withdrawalData);
+      res.json(withdrawal);
+    } catch (error) {
+      console.error("Error creating withdrawal:", error);
+      res.status(500).json({ message: "Failed to create withdrawal" });
     }
   });
 

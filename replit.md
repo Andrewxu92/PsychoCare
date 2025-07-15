@@ -134,6 +134,10 @@ Changelog:
 - July 03, 2025. Populated database with sample therapist data, appointments, and reviews
 - July 03, 2025. Enhanced Airwallex token management with automatic retry on 401 errors and race condition protection
 - July 03, 2025. Removed OAuth authentication system, now using only custom demo login with session-based authentication
+- July 15, 2025. Implemented comprehensive therapist wallet functionality with income display, withdrawal capabilities, and Airwallex beneficiary integration
+- July 15, 2025. Added database schema for therapist earnings, beneficiaries, and withdrawal requests
+- July 15, 2025. Created complete wallet management interface with masked account numbers and transaction history
+- July 15, 2025. Extended API routes for wallet operations including earnings tracking and beneficiary management
 ```
 
 ## User Preferences

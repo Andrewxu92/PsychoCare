@@ -126,6 +126,53 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Therapist earnings and wallet
+export const therapistEarnings = pgTable("therapist_earnings", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => therapists.id),
+  appointmentId: integer("appointment_id").notNull().references(() => appointments.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  commission: decimal("commission", { precision: 10, scale: 2 }).notNull().default("0"),
+  netAmount: decimal("net_amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, available, withdrawn
+  earnedAt: timestamp("earned_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Beneficiary accounts for payouts
+export const therapistBeneficiaries = pgTable("therapist_beneficiaries", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => therapists.id),
+  airwallexBeneficiaryId: varchar("airwallex_beneficiary_id").notNull(),
+  accountType: varchar("account_type").notNull(), // bank, card, etc.
+  accountHolderName: varchar("account_holder_name").notNull(),
+  accountNumber: varchar("account_number").notNull(), // masked
+  bankName: varchar("bank_name"),
+  currency: varchar("currency").notNull().default("CNY"),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Withdrawal requests
+export const withdrawalRequests = pgTable("withdrawal_requests", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => therapists.id),
+  beneficiaryId: integer("beneficiary_id").notNull().references(() => therapistBeneficiaries.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").notNull().default("CNY"),
+  status: varchar("status").notNull().default("pending"), // pending, processing, completed, failed
+  airwallexTransferRequestId: varchar("airwallex_transfer_request_id"),
+  airwallexTransferId: varchar("airwallex_transfer_id"),
+  failureReason: text("failure_reason"),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const userRelations = relations(users, ({ one, many }) => ({
   therapistProfile: one(therapists, {
@@ -147,6 +194,9 @@ export const therapistRelations = relations(therapists, ({ one, many }) => ({
   appointments: many(appointments),
   reviews: many(reviews),
   credentials: many(therapistCredentials),
+  earnings: many(therapistEarnings),
+  beneficiaries: many(therapistBeneficiaries),
+  withdrawalRequests: many(withdrawalRequests),
 }));
 
 export const therapistCredentialRelations = relations(therapistCredentials, ({ one }) => ({
@@ -184,6 +234,36 @@ export const reviewRelations = relations(reviews, ({ one }) => ({
   therapist: one(therapists, {
     fields: [reviews.therapistId],
     references: [therapists.id],
+  }),
+}));
+
+export const therapistEarningsRelations = relations(therapistEarnings, ({ one }) => ({
+  therapist: one(therapists, {
+    fields: [therapistEarnings.therapistId],
+    references: [therapists.id],
+  }),
+  appointment: one(appointments, {
+    fields: [therapistEarnings.appointmentId],
+    references: [appointments.id],
+  }),
+}));
+
+export const therapistBeneficiariesRelations = relations(therapistBeneficiaries, ({ one, many }) => ({
+  therapist: one(therapists, {
+    fields: [therapistBeneficiaries.therapistId],
+    references: [therapists.id],
+  }),
+  withdrawalRequests: many(withdrawalRequests),
+}));
+
+export const withdrawalRequestsRelations = relations(withdrawalRequests, ({ one }) => ({
+  therapist: one(therapists, {
+    fields: [withdrawalRequests.therapistId],
+    references: [therapists.id],
+  }),
+  beneficiary: one(therapistBeneficiaries, {
+    fields: [withdrawalRequests.beneficiaryId],
+    references: [therapistBeneficiaries.id],
   }),
 }));
 
@@ -228,6 +308,27 @@ export const insertTherapistCredentialSchema = createInsertSchema(therapistCrede
   updatedAt: true,
 });
 
+export const insertTherapistEarningsSchema = createInsertSchema(therapistEarnings).omit({
+  id: true,
+  earnedAt: true,
+  createdAt: true,
+});
+
+export const insertTherapistBeneficiarySchema = createInsertSchema(therapistBeneficiaries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWithdrawalRequestSchema = createInsertSchema(withdrawalRequests).omit({
+  id: true,
+  requestedAt: true,
+  processedAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -243,6 +344,12 @@ export type InsertAirwallexCustomer = z.infer<typeof insertAirwallexCustomerSche
 export type AirwallexCustomer = typeof airwallexCustomers.$inferSelect;
 export type InsertTherapistCredential = z.infer<typeof insertTherapistCredentialSchema>;
 export type TherapistCredential = typeof therapistCredentials.$inferSelect;
+export type InsertTherapistEarnings = z.infer<typeof insertTherapistEarningsSchema>;
+export type TherapistEarnings = typeof therapistEarnings.$inferSelect;
+export type InsertTherapistBeneficiary = z.infer<typeof insertTherapistBeneficiarySchema>;
+export type TherapistBeneficiary = typeof therapistBeneficiaries.$inferSelect;
+export type InsertWithdrawalRequest = z.infer<typeof insertWithdrawalRequestSchema>;
+export type WithdrawalRequest = typeof withdrawalRequests.$inferSelect;
 
 // Extended types with relations
 export type TherapistWithUser = Therapist & { user: User };
