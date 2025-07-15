@@ -14,6 +14,7 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import AirwallexBeneficiaryForm from "@/components/airwallex-beneficiary-form";
 import { 
   Wallet, 
   TrendingUp, 
@@ -56,6 +57,7 @@ export default function TherapistWallet() {
   const [showAccountNumbers, setShowAccountNumbers] = useState<Record<number, boolean>>({});
   const [beneficiaryDialogOpen, setBeneficiaryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [showAirwallexForm, setShowAirwallexForm] = useState(false);
 
   // Get therapist ID (assuming user is authenticated as therapist)
   const { data: therapist } = useQuery({
@@ -146,6 +148,26 @@ export default function TherapistWallet() {
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
     createWithdrawalMutation.mutate(data);
+  };
+
+  const handleAirwallexSuccess = (beneficiaryData: any) => {
+    console.log('Airwallex beneficiary created:', beneficiaryData);
+    
+    // Create beneficiary record in our database using Airwallex data
+    const beneficiaryPayload = {
+      accountType: beneficiaryData.type || 'bank',
+      bankName: beneficiaryData.bank_details?.bank_name || '',
+      accountNumber: beneficiaryData.bank_details?.account_number || beneficiaryData.account_number || '',
+      accountName: beneficiaryData.first_name && beneficiaryData.last_name 
+        ? `${beneficiaryData.first_name} ${beneficiaryData.last_name}`
+        : beneficiaryData.account_name || '',
+      swiftCode: beneficiaryData.bank_details?.swift_code || '',
+      isDefault: false,
+      airwallexBeneficiaryId: beneficiaryData.id // Store Airwallex beneficiary ID
+    };
+
+    createBeneficiaryMutation.mutate(beneficiaryPayload);
+    setShowAirwallexForm(false);
   };
 
   const toggleAccountVisibility = (id: number) => {
@@ -302,28 +324,42 @@ export default function TherapistWallet() {
 
           {/* Beneficiaries Tab */}
           <TabsContent value="beneficiaries" className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>收款账户</CardTitle>
-                  <CardDescription>管理您的收款账户信息</CardDescription>
-                </div>
-                <Dialog open={beneficiaryDialogOpen} onOpenChange={setBeneficiaryDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
+            {showAirwallexForm ? (
+              <AirwallexBeneficiaryForm 
+                onSuccess={handleAirwallexSuccess}
+                onClose={() => setShowAirwallexForm(false)}
+              />
+            ) : (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>收款账户</CardTitle>
+                    <CardDescription>管理您的收款账户信息</CardDescription>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowAirwallexForm(true)}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
-                      添加账户
+                      使用Airwallex添加
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>添加收款账户</DialogTitle>
-                      <DialogDescription>
-                        请填写完整的收款账户信息
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Form {...beneficiaryForm}>
-                      <form onSubmit={beneficiaryForm.handleSubmit(onBeneficiarySubmit)} className="space-y-4">
+                    <Dialog open={beneficiaryDialogOpen} onOpenChange={setBeneficiaryDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="h-4 w-4 mr-2" />
+                          手动添加
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>添加收款账户</DialogTitle>
+                          <DialogDescription>
+                            请填写完整的收款账户信息
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Form {...beneficiaryForm}>
+                          <form onSubmit={beneficiaryForm.handleSubmit(onBeneficiarySubmit)} className="space-y-4">
                         <FormField
                           control={beneficiaryForm.control}
                           name="accountType"
@@ -391,19 +427,20 @@ export default function TherapistWallet() {
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2">
-                          <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
-                            取消
-                          </Button>
-                          <Button type="submit" disabled={createBeneficiaryMutation.isPending}>
-                            {createBeneficiaryMutation.isPending ? "添加中..." : "添加"}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
+                            <div className="flex justify-end space-x-2">
+                              <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
+                                取消
+                              </Button>
+                              <Button type="submit" disabled={createBeneficiaryMutation.isPending}>
+                                {createBeneficiaryMutation.isPending ? "添加中..." : "添加"}
+                              </Button>
+                            </div>
+                          </form>
+                        </Form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
               <CardContent>
                 {beneficiariesLoading ? (
                   <div className="space-y-4">
@@ -473,6 +510,7 @@ export default function TherapistWallet() {
                 )}
               </CardContent>
             </Card>
+            )}
           </TabsContent>
 
           {/* Withdrawals Tab */}
