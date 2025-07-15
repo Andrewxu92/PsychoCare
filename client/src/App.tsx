@@ -16,6 +16,7 @@ import BookingFailure from "@/pages/booking-failure";
 import Dashboard from "@/pages/dashboard";
 import TherapistRegistration from "@/pages/therapist-registration";
 import TherapistDashboard from "@/pages/therapist-dashboard";
+import TherapistWallet from "@/pages/therapist-wallet";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -37,6 +38,7 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/therapist-registration" component={TherapistRegistration} />
           <Route path="/therapist-dashboard" component={TherapistDashboard} />
+          <Route path="/therapist-wallet" component={TherapistWallet} />
         </>
       )}
       <Route component={NotFound} />
