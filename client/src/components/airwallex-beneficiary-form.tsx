@@ -26,14 +26,14 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
       try {
         setIsLoading(true);
         
-        // Get authentication code from server
+        // Get authentication config from server
         const authResponse = await apiRequest('/api/airwallex/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!authResponse.authCode || !authResponse.codeVerifier) {
-          throw new Error('Failed to get authentication code');
+        if (!authResponse.clientId) {
+          throw new Error('Failed to get authentication config');
         }
 
         // Get Airwallex config
@@ -41,14 +41,12 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         
         if (!mounted) return;
 
-        // Initialize Airwallex SDK
+        // Initialize Airwallex SDK with client credentials
         await init({
           locale: 'en',
           env: configResponse.environment === 'prod' ? 'prod' : 'demo',
           enabledElements: ['payouts'],
-          authCode: authResponse.authCode,
-          clientId: configResponse.clientId,
-          codeVerifier: authResponse.codeVerifier,
+          clientId: authResponse.clientId,
         });
 
         if (!mounted) return;
