@@ -85,14 +85,15 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
       // Clean up the element when component unmounts
       if (beneficiaryFormRef.current) {
         try {
-          // Check if the element is still mounted before destroying
-          const container = document.getElementById('beneficiary-root');
-          if (container && container.children.length > 0) {
-            beneficiaryFormRef.current.destroy?.();
-          }
+          beneficiaryFormRef.current.unmount?.();
         } catch (error) {
-          console.warn('Error destroying Airwallex element:', error);
+          console.warn('Error unmounting Airwallex element:', error);
         }
+      }
+      // Clear the container manually
+      const container = document.getElementById('beneficiary-root');
+      if (container) {
+        container.innerHTML = '';
       }
     };
   }, [toast]);
