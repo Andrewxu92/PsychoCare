@@ -53,6 +53,12 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
           }
         });
         
+        // Check if container exists before mounting
+        const container = document.getElementById("beneficiary-root");
+        if (!container) {
+          throw new Error('Container element not found');
+        }
+        
         element.mount("#beneficiary-root");
         beneficiaryFormRef.current = element;
 
@@ -79,7 +85,11 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
       // Clean up the element when component unmounts
       if (beneficiaryFormRef.current) {
         try {
-          beneficiaryFormRef.current.destroy?.();
+          // Check if the element is still mounted before destroying
+          const container = document.getElementById('beneficiary-root');
+          if (container && container.children.length > 0) {
+            beneficiaryFormRef.current.destroy?.();
+          }
         } catch (error) {
           console.warn('Error destroying Airwallex element:', error);
         }
