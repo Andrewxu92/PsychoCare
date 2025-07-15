@@ -484,32 +484,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Airwallex authentication for embedded components
   app.post('/api/airwallex/auth', customAuth, async (req: any, res) => {
     try {
-      const { makeAirwallexRequest } = await import('./airwallex-config.js');
+      const { airwallexConfig } = await import('./airwallex-config.js');
       
-      // Generate code_verifier and code_challenge for PKCE
-      const crypto = require('crypto');
-      const codeVerifier = crypto.randomBytes(32).toString('base64url');
-      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-      
-      const response = await makeAirwallexRequest('/api/v1/authentication/authorize', {
-        method: 'POST',
-        body: JSON.stringify({
-          scope: 'w:awx_action:transfers_edit',
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256'
-        })
-      });
-      
-      const authData = await response.json();
-      
-      if (!response.ok) {
-        console.error('Airwallex auth error:', authData);
-        return res.status(400).json({ message: 'Failed to get authorization code' });
-      }
-      
+      // For embedded components, we need to provide client configuration
+      // The SDK will handle authentication internally
       res.json({
-        authCode: authData.authorization_code,
-        codeVerifier: codeVerifier
+        clientId: airwallexConfig.clientId,
+        environment: airwallexConfig.environment,
+        // Generate a session token for this user session
+        sessionToken: `session_${Date.now()}_${req.user.claims.sub}`
       });
     } catch (error) {
       console.error('Error generating Airwallex auth:', error);
