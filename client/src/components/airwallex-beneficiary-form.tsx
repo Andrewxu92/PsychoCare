@@ -23,10 +23,8 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         setIsLoading(true);
         
         // Get authentication config from server
-        const authResponse = await apiRequest('/api/airwallex/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
+        const response = await apiRequest('POST', '/api/airwallex/auth');
+        const authResponse = await response.json();
 
         if (!authResponse.authCode || !authResponse.clientId || !authResponse.codeVerifier) {
           throw new Error('Failed to get authentication config');
