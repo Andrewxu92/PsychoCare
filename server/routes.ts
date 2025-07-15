@@ -484,18 +484,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Airwallex authentication for embedded components
   app.post('/api/airwallex/auth', customAuth, async (req: any, res) => {
     try {
-      const { airwallexConfig } = await import('./airwallex-config.js');
+      const { makeAirwallexRequest, airwallexConfig } = await import('./airwallex-config.js');
+      const crypto = await import('crypto');
       
-      // For embedded components, we need to provide client configuration
-      // The SDK will handle authentication internally
+      // Generate code_verifier and code_challenge for PKCE
+      const codeVerifier = crypto.randomBytes(32).toString('base64url');
+      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+      
+      console.log('Attempting Airwallex authorize with payload:', {
+        scope: ['w:awx_action:transfers_edit'],
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+      });
+      
+      // Call authorize endpoint to get authorization_code
+      const response = await makeAirwallexRequest('/api/v1/authentication/authorize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          scope: ['w:awx_action:transfers_edit'],
+          code_challenge: codeChallenge,
+          code_challenge_method: 'S256'
+        })
+      });
+      
+      const authData = await response.json();
+      
+      if (!response.ok) {
+        console.error('Airwallex authorize error:', authData);
+        return res.status(400).json({ 
+          message: 'Failed to get authorization code',
+          error: authData 
+        });
+      }
+      
+      console.log('Airwallex authorize success:', authData);
+      
       res.json({
+        authCode: authData.authorization_code,
         clientId: airwallexConfig.clientId,
-        environment: airwallexConfig.environment,
-        // Generate a session token for this user session
-        sessionToken: `session_${Date.now()}_${req.user.claims.sub}`
+        codeVerifier: codeVerifier,
+        environment: airwallexConfig.environment
       });
     } catch (error) {
-      console.error('Error generating Airwallex auth:', error);
+      console.error('Error in Airwallex auth:', error);
       res.status(500).json({ message: 'Failed to generate authorization' });
     }
   });

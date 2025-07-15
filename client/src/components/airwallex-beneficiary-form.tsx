@@ -32,21 +32,27 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
           headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!authResponse.clientId) {
+        if (!authResponse.authCode || !authResponse.clientId || !authResponse.codeVerifier) {
           throw new Error('Failed to get authentication config');
         }
 
-        // Get Airwallex config
-        const configResponse = await apiRequest('/api/airwallex/config');
+        console.log('Airwallex auth response:', {
+          hasAuthCode: !!authResponse.authCode,
+          hasClientId: !!authResponse.clientId,
+          hasCodeVerifier: !!authResponse.codeVerifier,
+          environment: authResponse.environment
+        });
         
         if (!mounted) return;
 
-        // Initialize Airwallex SDK with client credentials
+        // Initialize Airwallex SDK with proper authentication
         await init({
           locale: 'en',
-          env: configResponse.environment === 'prod' ? 'prod' : 'demo',
+          env: authResponse.environment === 'prod' ? 'prod' : 'demo',
           enabledElements: ['payouts'],
+          authCode: authResponse.authCode,
           clientId: authResponse.clientId,
+          codeVerifier: authResponse.codeVerifier,
         });
 
         if (!mounted) return;
