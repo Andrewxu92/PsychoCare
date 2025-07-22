@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -16,7 +22,10 @@ interface AirwallexBeneficiaryFormProps {
   onClose: () => void;
 }
 
-export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: AirwallexBeneficiaryFormProps) {
+export default function AirwallexBeneficiaryForm({
+  onSuccess,
+  onClose,
+}: AirwallexBeneficiaryFormProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,32 +44,41 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
 
         // Load Airwallex SDK script if not already loaded
         if (!window.AirwallexComponentsSDK) {
-          const script = document.createElement('script');
-          script.src = 'https://checkout.airwallex.com/assets/elements.bundle.min.js';
+          const script = document.createElement("script");
+          script.src =
+            "https://checkout.airwallex.com/assets/elements.bundle.min.js";
           script.async = true;
           document.head.appendChild(script);
-          
+
           await new Promise<void>((resolve, reject) => {
             script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load Airwallex SDK'));
+            script.onerror = () =>
+              reject(new Error("Failed to load Airwallex SDK"));
           });
         }
 
         if (!isMounted) return;
 
-        // Get authentication config from server
-        const response = await apiRequest('POST', '/api/airwallex/auth');
+        // Get authentication config from server //需要重写
+        const response = await apiRequest(
+          "POST",
+          "/api/v1/authentication/authorize",
+        );
         const authResponse = await response.json();
 
-        if (!authResponse.authCode || !authResponse.clientId || !authResponse.codeVerifier) {
-          throw new Error('Failed to get authentication config');
+        if (
+          !authResponse.authCode ||
+          !authResponse.clientId ||
+          !authResponse.codeVerifier
+        ) {
+          throw new Error("Failed to get authentication config");
         }
 
-        console.log('Airwallex auth response:', {
+        console.log("Airwallex auth response:", {
           hasAuthCode: !!authResponse.authCode,
           hasClientId: !!authResponse.clientId,
           hasCodeVerifier: !!authResponse.codeVerifier,
-          environment: authResponse.environment
+          environment: authResponse.environment,
         });
 
         if (!isMounted) return;
@@ -68,12 +86,12 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         // Wait for SDK to be available
         let retries = 0;
         while (!window.AirwallexComponentsSDK && retries < 50) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
           retries++;
         }
 
         if (!window.AirwallexComponentsSDK) {
-          throw new Error('Airwallex SDK failed to load');
+          throw new Error("Airwallex SDK failed to load");
         }
 
         if (!isMounted) return;
@@ -83,7 +101,7 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         // Initialize Airwallex SDK
         await init({
           locale: "en",
-          env: authResponse.environment === 'prod' ? 'prod' : 'demo',
+          env: authResponse.environment === "prod" ? "prod" : "demo",
           authCode: authResponse.authCode,
           clientId: authResponse.clientId,
           codeVerifier: authResponse.codeVerifier,
@@ -94,8 +112,8 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         // Create beneficiary form element
         const element = await createElement("beneficiaryForm", {
           customizations: {
-            minHeight: 500
-          }
+            minHeight: 500,
+          },
         });
 
         if (!isMounted) return;
@@ -103,10 +121,10 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         // Create a unique container for mounting
         if (containerRef.current && !mountedRef.current) {
           // Clear any existing content
-          containerRef.current.innerHTML = '';
-          
+          containerRef.current.innerHTML = "";
+
           // Create a new div for mounting
-          const mountDiv = document.createElement('div');
+          const mountDiv = document.createElement("div");
           mountDiv.id = `airwallex-beneficiary-${Date.now()}`;
           containerRef.current.appendChild(mountDiv);
 
@@ -116,30 +134,33 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
           mountedRef.current = true;
 
           // Set up event handlers
-          element.on('submit', (beneficiaryData: any) => {
-            console.log('Beneficiary form submitted:', beneficiaryData);
+          element.on("submit", (beneficiaryData: any) => {
+            console.log("Beneficiary form submitted:", beneficiaryData);
             onSuccess(beneficiaryData);
           });
 
-          element.on('error', (error: any) => {
-            console.error('Airwallex beneficiary form error:', error);
-            setError(error.message || 'An error occurred with the form');
+          element.on("error", (error: any) => {
+            console.error("Airwallex beneficiary form error:", error);
+            setError(error.message || "An error occurred with the form");
           });
 
           // Setup cleanup function
           cleanup = () => {
             try {
-              if (elementRef.current && typeof elementRef.current.unmount === 'function') {
+              if (
+                elementRef.current &&
+                typeof elementRef.current.unmount === "function"
+              ) {
                 elementRef.current.unmount();
               }
             } catch (err) {
-              console.warn('Error unmounting Airwallex element:', err);
+              console.warn("Error unmounting Airwallex element:", err);
             }
-            
+
             if (containerRef.current) {
-              containerRef.current.innerHTML = '';
+              containerRef.current.innerHTML = "";
             }
-            
+
             elementRef.current = null;
             mountedRef.current = false;
           };
@@ -148,20 +169,23 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
             setIsLoading(false);
             toast({
               title: "表单加载成功",
-              description: "请填写您的收款账户信息"
+              description: "请填写您的收款账户信息",
             });
           }
         }
-
       } catch (err) {
-        console.error('Error initializing Airwallex:', err);
+        console.error("Error initializing Airwallex:", err);
         if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to initialize Airwallex');
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to initialize Airwallex",
+          );
           setIsLoading(false);
           toast({
             title: "初始化失败",
             description: err instanceof Error ? err.message : "请稍后重试",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       }
@@ -176,14 +200,14 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         cleanup();
       }
     };
-  }, [onSuccess, toast]);
+  }, []); // Remove dependencies to prevent infinite loop
 
   const handleRetry = () => {
     setError(null);
     // Force re-mount by clearing the mounted flag
     mountedRef.current = false;
     if (containerRef.current) {
-      containerRef.current.innerHTML = '';
+      containerRef.current.innerHTML = "";
     }
     // The useEffect will automatically re-run due to error state change
   };
@@ -215,9 +239,7 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
         <div className="flex justify-between items-center">
           <div>
             <CardTitle>添加收款账户</CardTitle>
-            <CardDescription>
-              请填写您的银行账户信息以接收付款
-            </CardDescription>
+            <CardDescription>请填写您的银行账户信息以接收付款</CardDescription>
           </div>
           <Button onClick={onClose} variant="ghost" size="sm">
             ✕
@@ -231,11 +253,11 @@ export default function AirwallexBeneficiaryForm({ onSuccess, onClose }: Airwall
             <span className="text-gray-600">正在加载Airwallex表单...</span>
           </div>
         )}
-        
-        <div 
+
+        <div
           ref={containerRef}
           className="min-h-[500px] w-full"
-          style={{ display: isLoading ? 'none' : 'block' }}
+          style={{ display: isLoading ? "none" : "block" }}
         />
       </CardContent>
     </Card>

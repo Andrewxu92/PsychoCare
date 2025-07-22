@@ -60,7 +60,7 @@ export default function TherapistWallet() {
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
 
   // Get therapist ID (assuming user is authenticated as therapist)
-  const { data: therapist } = useQuery({
+  const { data: therapist } = useQuery<{ id: number }>({
     queryKey: [`/api/therapists/by-user/${user?.id}`],
     enabled: !!user?.id
   });
@@ -68,25 +68,30 @@ export default function TherapistWallet() {
   const therapistId = therapist?.id;
 
   // Wallet summary query
-  const { data: walletSummary, isLoading: summaryLoading } = useQuery({
+  const { data: walletSummary, isLoading: summaryLoading } = useQuery<{
+    totalEarnings: number;
+    availableBalance: number;
+    pendingAmount: number;
+    withdrawnAmount: number;
+  }>({
     queryKey: [`/api/therapists/${therapistId}/wallet/summary`],
     enabled: !!therapistId
   });
 
   // Earnings query
-  const { data: earnings, isLoading: earningsLoading } = useQuery({
+  const { data: earnings, isLoading: earningsLoading } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/earnings`],
     enabled: !!therapistId
   });
 
   // Beneficiaries query
-  const { data: beneficiaries, isLoading: beneficiariesLoading } = useQuery({
+  const { data: beneficiaries, isLoading: beneficiariesLoading } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/beneficiaries`],
     enabled: !!therapistId
   });
 
   // Withdrawals query
-  const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery({
+  const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/withdrawals`],
     enabled: !!therapistId
   });
@@ -107,11 +112,7 @@ export default function TherapistWallet() {
   // Mutations
   const createBeneficiaryMutation = useMutation({
     mutationFn: (data: BeneficiaryFormData) =>
-      apiRequest(`/api/therapists/${therapistId}/beneficiaries`, {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" }
-      }),
+      apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
       setBeneficiaryDialogOpen(false);
@@ -125,11 +126,7 @@ export default function TherapistWallet() {
 
   const createWithdrawalMutation = useMutation({
     mutationFn: (data: WithdrawalFormData) =>
-      apiRequest(`/api/therapists/${therapistId}/withdrawals`, {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" }
-      }),
+      apiRequest("POST", `/api/therapists/${therapistId}/withdrawals`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/withdrawals`] });
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/wallet/summary`] });
