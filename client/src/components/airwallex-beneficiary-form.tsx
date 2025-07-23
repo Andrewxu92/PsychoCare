@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { createElement, init, ElementTypes } from "@airwallex/components-sdk";
 
 declare global {
   interface Window {
@@ -46,7 +47,7 @@ export default function AirwallexBeneficiaryForm({
         if (!window.AirwallexComponentsSDK) {
           const script = document.createElement("script");
           script.src =
-            "https://checkout.airwallex.com/assets/elements.bundle.min.js";
+            "https://static.airwallex.com/components/sdk/v1/index.js";
           script.async = true;
           document.head.appendChild(script);
 
@@ -59,11 +60,8 @@ export default function AirwallexBeneficiaryForm({
 
         if (!isMounted) return;
 
-        // Get authentication config from server //需要重写
-        const response = await apiRequest(
-          "POST",
-          "/api/v1/authentication/authorize",
-        );
+        // Get authentication config from server
+        const response = await apiRequest("POST", "/api/airwallex/auth");
         const authResponse = await response.json();
 
         if (
@@ -85,8 +83,8 @@ export default function AirwallexBeneficiaryForm({
 
         // Wait for SDK to be available
         let retries = 0;
-        while (!window.AirwallexComponentsSDK && retries < 50) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
+        while (!window.AirwallexComponentsSDK && retries < 30) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
           retries++;
         }
 
@@ -100,7 +98,7 @@ export default function AirwallexBeneficiaryForm({
 
         // Initialize Airwallex SDK
         await init({
-          locale: "en",
+          locale: "zh",
           env: authResponse.environment === "prod" ? "prod" : "demo",
           authCode: authResponse.authCode,
           clientId: authResponse.clientId,
