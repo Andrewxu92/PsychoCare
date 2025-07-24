@@ -33,6 +33,7 @@ export default function AirwallexBeneficiaryForm({
   const elementRef = useRef<any>(null);
   const mountedRef = useRef(false);
   const { toast } = useToast();
+  const [isFormLoaded, setIsFormLoaded] = useState(false); // 新增状态，用于判断表单是否加载完成
 
   useEffect(() => {
     let isMounted = true;
@@ -165,6 +166,7 @@ export default function AirwallexBeneficiaryForm({
 
           if (isMounted) {
             setIsLoading(false);
+            setIsFormLoaded(true); // 表单加载完成，设置状态为 true
             toast({
               title: "表单加载成功",
               description: "请填写您的收款账户信息",
@@ -208,6 +210,17 @@ export default function AirwallexBeneficiaryForm({
       containerRef.current.innerHTML = "";
     }
     // The useEffect will automatically re-run due to error state change
+  };
+
+  const handleNext = async () => {
+    if (elementRef.current) {
+      try {
+        const result = await elementRef.current.submit();
+        console.log("Beneficiary form submit result:", result);
+      } catch (err) {
+        console.error("Error submitting beneficiary form:", err);
+      }
+    }
   };
 
   if (error) {
@@ -257,6 +270,12 @@ export default function AirwallexBeneficiaryForm({
           className="min-h-[500px] w-full"
           style={{ display: isLoading ? "none" : "block" }}
         />
+
+        {isFormLoaded && (
+          <Button onClick={handleNext} className="mt-4">
+            下一步
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
