@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 // Form schemas
 const beneficiaryFormSchema = z.object({
@@ -60,6 +61,7 @@ export default function TherapistWallet() {
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
   const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
   const { data: therapist } = useQuery<{ id: number }>({
@@ -120,11 +122,11 @@ export default function TherapistWallet() {
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
       toast({ title: "收款账户添加成功" });
-      navigate("/bind-beneficiary-success");
+      setLocation("/bind-beneficiary-success");
     },
-    onError: (error) => {
+    onError: () => {
       toast({ title: "添加失败", description: "请检查输入信息", variant: "destructive" });
-      navigate("/bind-beneficiary-failure", { state: { error: error?.message || "绑定失败" } });
+      setLocation("/bind-beneficiary-failure");
     }
   });
 
