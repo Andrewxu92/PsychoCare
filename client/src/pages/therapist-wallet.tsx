@@ -30,7 +30,6 @@ import {
   EyeOff
 } from "lucide-react";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
 import { useLocation } from "wouter";
 
 // Form schemas
@@ -60,7 +59,6 @@ export default function TherapistWallet() {
   const [beneficiaryDialogOpen, setBeneficiaryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
-  const navigate = useNavigate();
   const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
@@ -70,6 +68,7 @@ export default function TherapistWallet() {
   });
 
   const therapistId = therapist?.id;
+  console.log('therapistId', therapistId);
 
   // Wallet summary query
   const { data: walletSummary, isLoading: summaryLoading } = useQuery<{
@@ -115,16 +114,20 @@ export default function TherapistWallet() {
 
   // Mutations
   const createBeneficiaryMutation = useMutation({
-    mutationFn: (data: BeneficiaryFormData) =>
-      apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data),
+    mutationFn: (data: BeneficiaryFormData) => {
+      console.log('API Request Data:', data);
+      return apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data);
+    },
     onSuccess: () => {
+      console.log('Beneficiary added successfully');
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
       toast({ title: "收款账户添加成功" });
       setLocation("/bind-beneficiary-success");
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Add beneficiary error:', error);
       toast({ title: "添加失败", description: "请检查输入信息", variant: "destructive" });
       setLocation("/bind-beneficiary-failure");
     }
@@ -146,6 +149,7 @@ export default function TherapistWallet() {
   });
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
+    console.log('onBeneficiarySubmit', data);
     createBeneficiaryMutation.mutate(data);
   };
 
