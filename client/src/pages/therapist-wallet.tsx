@@ -53,6 +53,7 @@ type WithdrawalFormData = z.infer<typeof withdrawalFormSchema>;
 
 export default function TherapistWallet() {
   const { user } = useAuth();
+  const typedUser = user as { id: number } | undefined;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAccountNumbers, setShowAccountNumbers] = useState<Record<number, boolean>>({});
@@ -62,9 +63,9 @@ export default function TherapistWallet() {
   const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
-  const { data: therapist } = useQuery<{ id: number }>({
-    queryKey: [`/api/therapists/by-user/${user?.id}`],
-    enabled: !!user?.id
+  const { data: therapist = undefined } = useQuery<{ id: number } | undefined>({
+    queryKey: [`/api/therapists/by-user/${typedUser?.id}`],
+    enabled: !!typedUser?.id
   });
 
   const therapistId = therapist?.id;
