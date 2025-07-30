@@ -217,8 +217,16 @@ export default function AirwallexBeneficiaryForm({
       try {
         const result = await elementRef.current.submit();
         console.log("Beneficiary form submit result:", result);
+        // 调用 onSuccess 回调，传递 Airwallex 返回的数据
+        onSuccess(result);
       } catch (err) {
         console.error("Error submitting beneficiary form:", err);
+        // 如果有错误，可以调用 onClose 或显示错误信息
+        toast({
+          title: "提交失败",
+          description: "请检查表单信息并重试",
+          variant: "destructive",
+        });
       }
     }
   };

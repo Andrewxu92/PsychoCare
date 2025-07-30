@@ -153,7 +153,10 @@ export default function TherapistWallet() {
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
     console.log('onBeneficiarySubmit', data);
+    console.log('therapistId in onBeneficiarySubmit:', therapistId);
+    console.log('createBeneficiaryMutation:', createBeneficiaryMutation);
     createBeneficiaryMutation.mutate(data);
+    console.log('mutate called');
   };
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
