@@ -68,7 +68,7 @@ export default function TherapistWallet() {
   });
 
   const therapistId = therapist?.id;
-  console.log('therapistId', therapistId);
+  console.log('这个是therapistID:', therapistId);
 
   // Wallet summary query
   const { data: walletSummary, isLoading: summaryLoading } = useQuery<{
@@ -116,6 +116,8 @@ export default function TherapistWallet() {
   const createBeneficiaryMutation = useMutation({
     mutationFn: (data: BeneficiaryFormData) => {
       console.log('API Request Data:', data);
+      console.log('therapistId in mutation:', therapistId);
+      console.log('API URL:', `/api/therapists/${therapistId}/beneficiaries`);
       return apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data);
     },
     onSuccess: () => {
