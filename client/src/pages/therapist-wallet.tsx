@@ -168,16 +168,17 @@ export default function TherapistWallet() {
     console.log('Airwallex raw data structure:', JSON.stringify(beneficiaryData, null, 2));
     
     // Create beneficiary record in our database using Airwallex data
+    const beneficiary = beneficiaryData.values?.beneficiary;
+    const bankDetails = beneficiary?.bank_details;
+    
     const beneficiaryPayload = {
-      accountType: beneficiaryData.type || 'bank',
-      bankName: beneficiaryData.bank_details?.bank_name || '',
-      accountNumber: beneficiaryData.bank_details?.account_number || beneficiaryData.account_number || '',
-      accountName: beneficiaryData.first_name && beneficiaryData.last_name 
-        ? `${beneficiaryData.first_name} ${beneficiaryData.last_name}`
-        : beneficiaryData.account_name || '',
-      swiftCode: beneficiaryData.bank_details?.swift_code || '',
+      accountType: 'bank' as const,
+      bankName: bankDetails?.bank_name || '',
+      accountNumber: bankDetails?.account_number || '',
+      accountName: bankDetails?.account_name || '',
+      swiftCode: bankDetails?.swift_code || '',
       isDefault: false,
-      airwallexBeneficiaryId: beneficiaryData.id // Store Airwallex beneficiary ID
+      airwallexBeneficiaryId: beneficiary?.id
     };
     console.log('Processed beneficiary payload:', beneficiaryPayload);
 
