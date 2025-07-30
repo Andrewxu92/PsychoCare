@@ -165,6 +165,7 @@ export default function TherapistWallet() {
 
   const handleAirwallexSuccess = (beneficiaryData: any) => {
     console.log('Airwallex beneficiary created:', beneficiaryData);
+    console.log('Airwallex raw data structure:', JSON.stringify(beneficiaryData, null, 2));
     
     // Create beneficiary record in our database using Airwallex data
     const beneficiaryPayload = {
@@ -178,6 +179,7 @@ export default function TherapistWallet() {
       isDefault: false,
       airwallexBeneficiaryId: beneficiaryData.id // Store Airwallex beneficiary ID
     };
+    console.log('Processed beneficiary payload:', beneficiaryPayload);
 
     createBeneficiaryMutation.mutate(beneficiaryPayload);
     setShowAirwallexForm(false);

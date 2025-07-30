@@ -217,6 +217,9 @@ export default function AirwallexBeneficiaryForm({
       try {
         const result = await elementRef.current.submit();
         console.log("Beneficiary form submit result:", result);
+        console.log("Airwallex SDK raw result:", JSON.stringify(result, null, 2));
+        console.log("Result type:", typeof result);
+        console.log("Result keys:", result ? Object.keys(result) : 'null/undefined');
         // 调用 onSuccess 回调，传递 Airwallex 返回的数据
         onSuccess(result);
       } catch (err) {
