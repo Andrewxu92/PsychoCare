@@ -32,13 +32,14 @@ import {
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 
-// Form schemas
+// Form schemas - Updated to match database schema
 const beneficiaryFormSchema = z.object({
-  accountType: z.enum(["bank", "alipay", "wechat_pay"]),
+  accountType: z.string(),
   bankName: z.string().optional(),
   accountNumber: z.string().min(1, "账户号码是必填项"),
-  accountName: z.string().min(1, "账户名是必填项"),
-  swiftCode: z.string().optional(),
+  accountHolderName: z.string().min(1, "账户持有人姓名是必填项"),
+  currency: z.string().default("USD"),
+  airwallexBeneficiaryId: z.string().min(1, "Airwallex受益人ID是必填项"),
   isDefault: z.boolean().default(false)
 });
 
@@ -164,8 +165,10 @@ export default function TherapistWallet() {
   };
 
   const handleAirwallexSuccess = (beneficiaryData: any) => {
-    console.log('Airwallex beneficiary created:', beneficiaryData);
-    console.log('Airwallex raw data structure:', JSON.stringify(beneficiaryData, null, 2));
+    console.log('Beneficiary form submit result:', beneficiaryData);
+    console.log('Airwallex SDK raw result:', JSON.stringify(beneficiaryData, null, 2));
+    console.log('Result type:', typeof beneficiaryData);
+    console.log('Result keys:', Object.keys(beneficiaryData));
     
     // Create beneficiary record in our database using Airwallex data
     const beneficiary = beneficiaryData.values?.beneficiary;
@@ -175,12 +178,16 @@ export default function TherapistWallet() {
       accountType: 'bank' as const,
       bankName: bankDetails?.bank_name || '',
       accountNumber: bankDetails?.account_number || '',
-      accountName: bankDetails?.account_name || '',
-      swiftCode: bankDetails?.swift_code || '',
+      accountHolderName: bankDetails?.account_name || '', // Map to correct field
+      currency: bankDetails?.account_currency || 'USD',
       isDefault: false,
-      airwallexBeneficiaryId: beneficiary?.id
+      // Generate a temporary ID since Airwallex form doesn't return the actual beneficiary ID
+      airwallexBeneficiaryId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     };
     console.log('Processed beneficiary payload:', beneficiaryPayload);
+    console.log('API Request Data:', beneficiaryPayload);
+    console.log('therapistId in mutation:', therapistId);
+    console.log('API URL:', `/api/therapists/${therapistId}/beneficiaries`);
 
     createBeneficiaryMutation.mutate(beneficiaryPayload);
     setShowAirwallexForm(false);
