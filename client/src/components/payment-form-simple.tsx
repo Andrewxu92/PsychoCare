@@ -149,9 +149,38 @@ export default function PaymentForm({
         setIsReady(true);
       });
 
-      element.on("success", (event: any) => {
+      element.on("success", async (event: any) => {
         console.log("Payment succeeded:", event.detail);
-        onPaymentSuccess(event.detail);
+        setIsProcessing(true);
+        
+        try {
+          // Extract payment intent ID from the event
+          const paymentIntentId = event.detail?.intent?.payment_intent_id || 
+                                 event.detail?.intent?.id ||
+                                 paymentIntent.id;
+          
+          // Verify payment status with backend before proceeding
+          const statusResponse = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+          
+          if (statusResponse.status === 'SUCCEEDED') {
+            console.log("Payment status verified as SUCCEEDED");
+            onPaymentSuccess(event.detail);
+          } else {
+            console.error("Payment not successful, status:", statusResponse.status);
+            setPaymentError(`支付未成功，状态: ${statusResponse.status}`);
+            setIsProcessing(false);
+            if (onPaymentFailure) {
+              onPaymentFailure();
+            }
+          }
+        } catch (error: any) {
+          console.error("Error verifying payment status:", error);
+          setPaymentError("支付状态验证失败，请联系客服");
+          setIsProcessing(false);
+          if (onPaymentFailure) {
+            onPaymentFailure();
+          }
+        }
       });
 
       element.on("error", (event: any) => {

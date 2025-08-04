@@ -3,9 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { findDemoUser, validatePassword, validateVerificationCode } from "./demo-users";
+import { makeAirwallexRequest } from "./airwallex-config";
 import { z } from "zod";
 import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema, insertTherapistEarningsSchema, insertTherapistBeneficiarySchema, insertWithdrawalRequestSchema } from "@shared/schema";
-import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken, makeAirwallexRequest } from "./airwallex-config";
+import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -398,11 +399,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const netAmount = appointmentPrice - commission;
 
         await storage.createTherapistEarnings({
-          therapistId: appointment.therapistId,
-          appointmentId: appointment.id,
-          amount: appointmentPrice,
-          commission,
-          netAmount,
+          therapistId: appointment.therapistId.toString(),
+          appointmentId: appointment.id.toString(),
+          amount: appointmentPrice.toString(),
+          commission: commission.toString(),
+          netAmount: netAmount.toString(),
           status: "pending", // Will be "available" after session completion
         });
       }
@@ -418,11 +419,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const netAmount = appointmentPrice - commission;
 
           earnings = await storage.createTherapistEarnings({
-            therapistId: appointment.therapistId,
-            appointmentId: appointment.id,
-            amount: appointmentPrice,
-            commission,
-            netAmount,
+            therapistId: appointment.therapistId.toString(),
+            appointmentId: appointment.id.toString(),
+            amount: appointmentPrice.toString(),
+            commission: commission.toString(),
+            netAmount: netAmount.toString(),
             status: "available", // Directly available since session is completed
           });
         } else if (earnings) {
@@ -757,21 +758,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment intent status check endpoint
+  app.get('/api/payments/intent/:id/status', customAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Query Airwallex API for payment intent status
+      const response = await makeAirwallexRequest(`/api/v1/pa/payment_intents/${id}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error fetching payment intent status:", response.status, errorText);
+        return res.status(response.status).json({ message: "Failed to fetch payment status" });
+      }
+      
+      const paymentIntent = await response.json();
+      
+      res.json({
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        last_payment_error: paymentIntent.last_payment_error
+      });
+    } catch (error) {
+      console.error("Error checking payment intent status:", error);
+      res.status(500).json({ message: "Failed to check payment status" });
+    }
+  });
+
   app.post('/api/payments/confirm', customAuth, async (req: any, res) => {
     try {
       const { payment_intent_id, appointment_data } = req.body;
       
-      // In a real implementation, confirm payment with Airwallex API
-      // For development, simulate successful payment
-      const paymentResult = {
-        id: payment_intent_id,
-        status: 'succeeded',
-        amount_received: appointment_data?.price || 0,
-        currency: 'HKD'
-      };
-
-      // If payment successful and appointment data provided, create appointment
-      if (paymentResult.status === 'succeeded' && appointment_data) {
+      // Query Airwallex API for actual payment intent status
+      const statusResponse = await makeAirwallexRequest(`/api/v1/pa/payment_intents/${payment_intent_id}`);
+      
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error("Error fetching payment intent status:", statusResponse.status, errorText);
+        return res.status(statusResponse.status).json({ message: "Failed to verify payment status" });
+      }
+      
+      const paymentIntent = await statusResponse.json();
+      console.log("Payment intent status:", paymentIntent.status);
+      
+      // Only proceed if payment status is SUCCEEDED
+      if (paymentIntent.status === 'SUCCEEDED' && appointment_data) {
         const userId = req.user.claims.sub;
         const appointmentData = insertAppointmentSchema.parse({
           clientId: userId,
@@ -782,6 +815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'confirmed',
           clientNotes: appointment_data.clientNotes || '',
           paymentStatus: 'paid',
+          paymentIntentId: payment_intent_id,
           price: appointment_data.price || 0
         });
         
@@ -793,20 +827,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const netAmount = appointmentPrice - commission;
 
         await storage.createTherapistEarnings({
-          therapistId: appointment_data.therapistId,
-          appointmentId: appointment.id,
-          amount: appointmentPrice,
-          commission,
-          netAmount,
+          therapistId: appointment_data.therapistId.toString(),
+          appointmentId: appointment.id.toString(),
+          amount: appointmentPrice.toString(),
+          commission: commission.toString(),
+          netAmount: netAmount.toString(),
           status: "pending", // Will be "available" after session completion
         });
         
         res.json({
-          payment: paymentResult,
+          payment: {
+            id: paymentIntent.id,
+            status: paymentIntent.status,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency
+          },
           appointment: appointment
         });
+      } else if (paymentIntent.status !== 'SUCCEEDED') {
+        res.status(400).json({ 
+          message: "Payment not successful", 
+          status: paymentIntent.status,
+          error: paymentIntent.last_payment_error
+        });
       } else {
-        res.json({ payment: paymentResult });
+        res.json({ 
+          payment: {
+            id: paymentIntent.id,
+            status: paymentIntent.status,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency
+          }
+        });
       }
     } catch (error) {
       console.error("Error confirming payment:", error);
@@ -1125,7 +1177,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: amount.toString(),
         currency: beneficiary.currency,
         status: "pending",
-        requestedAt: new Date(),
       });
 
       // Mark corresponding earnings as withdrawn
