@@ -160,7 +160,10 @@ export default function PaymentForm({
                                  paymentIntent.id;
           
           // Verify payment status with backend before proceeding
-          const statusResponse = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+          const response = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+          const statusResponse = await response.json();
+          
+          console.log("Full status response:", statusResponse);
           
           if (statusResponse.status === 'SUCCEEDED') {
             console.log("Payment status verified as SUCCEEDED");

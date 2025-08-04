@@ -30,7 +30,10 @@ export default function PaymentStatusMonitor({
       try {
         console.log(`第${currentCheck + 1}次检查支付状态...`);
         
-        const statusResponse = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+        const response = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+        const statusResponse = await response.json();
+        
+        console.log("Payment status response:", statusResponse);
         
         if (statusResponse.status === 'SUCCEEDED') {
           setStatus('succeeded');
