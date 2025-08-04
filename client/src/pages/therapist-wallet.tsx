@@ -117,6 +117,8 @@ export default function TherapistWallet() {
     resolver: zodResolver(withdrawalFormSchema)
   });
 
+
+
   // Mutations
   const createBeneficiaryMutation = useMutation({
     mutationFn: (data: any) => {
@@ -167,12 +169,22 @@ export default function TherapistWallet() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/withdrawals`] });
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/wallet/summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/earnings`] });
       setWithdrawalDialogOpen(false);
       withdrawalForm.reset();
-      toast({ title: "提现申请已提交" });
+      toast({ 
+        title: "提现申请已提交",
+        description: "您的提现申请已成功提交，我们会尽快处理" 
+      });
     },
-    onError: () => {
-      toast({ title: "提现申请失败", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Withdrawal error:', error);
+      const errorMessage = error.message || "请稍后重试";
+      toast({ 
+        title: "提现失败", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -613,6 +625,14 @@ export default function TherapistWallet() {
                     </DialogHeader>
                     <Form {...withdrawalForm}>
                       <form onSubmit={withdrawalForm.handleSubmit(onWithdrawalSubmit)} className="space-y-4">
+                        {/* 可提现余额提示 */}
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-gray-600">可提现余额</div>
+                          <div className="text-xl font-semibold text-blue-600">
+                            ¥{walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                          </div>
+                        </div>
+
                         <FormField
                           control={withdrawalForm.control}
                           name="amount"
@@ -620,14 +640,23 @@ export default function TherapistWallet() {
                             <FormItem>
                               <FormLabel>提现金额</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="number" 
-                                  placeholder="请输入提现金额" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">¥</span>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="0.00"
+                                    className="pl-8"
+                                    max={walletSummary?.availableBalance || 0}
+                                    step="0.01"
+                                    {...field}
+                                    onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                                  />
+                                </div>
                               </FormControl>
                               <FormMessage />
+                              <div className="text-xs text-gray-500">
+                                最大可提现金额: ¥{walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                              </div>
                             </FormItem>
                           )}
                         />
@@ -637,22 +666,42 @@ export default function TherapistWallet() {
                           name="beneficiaryId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>收款账户</FormLabel>
+                              <FormLabel>选择收款账户</FormLabel>
                               <Select onValueChange={(value) => field.onChange(Number(value))}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="选择收款账户" />
+                                    <SelectValue placeholder="请选择收款账户" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                   {beneficiaries?.map((beneficiary: any) => (
                                     <SelectItem key={beneficiary.id} value={beneficiary.id.toString()}>
-                                      {beneficiary.accountName} ({maskAccountNumber(beneficiary.accountNumber)})
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-lg">
+                                          {beneficiary.currency === 'USD' ? '🇺🇸' :
+                                           beneficiary.currency === 'HKD' ? '🇭🇰' :
+                                           beneficiary.currency === 'CNY' ? '🇨🇳' :
+                                           beneficiary.currency === 'EUR' ? '🇪🇺' :
+                                           beneficiary.currency === 'GBP' ? '🇬🇧' :
+                                           beneficiary.currency === 'SGD' ? '🇸🇬' :
+                                           beneficiary.currency === 'AUD' ? '🇦🇺' :
+                                           beneficiary.currency === 'JPY' ? '🇯🇵' : '💳'}
+                                        </span>
+                                        <div>
+                                          <div className="font-medium">{beneficiary.accountHolderName}</div>
+                                          <div className="text-sm text-gray-500">
+                                            {beneficiary.currency} • {maskAccountNumber(beneficiary.accountNumber)}
+                                          </div>
+                                        </div>
+                                      </div>
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
+                              {!beneficiaries?.length && (
+                                <p className="text-sm text-orange-600">请先添加收款账户</p>
+                              )}
                             </FormItem>
                           )}
                         />
@@ -671,12 +720,22 @@ export default function TherapistWallet() {
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end space-x-2 pt-4">
                           <Button type="button" variant="outline" onClick={() => setWithdrawalDialogOpen(false)}>
                             取消
                           </Button>
-                          <Button type="submit" disabled={createWithdrawalMutation.isPending}>
-                            {createWithdrawalMutation.isPending ? "提交中..." : "提交申请"}
+                          <Button 
+                            type="submit" 
+                            disabled={createWithdrawalMutation.isPending || !beneficiaries?.length || !walletSummary?.availableBalance}
+                          >
+                            {createWithdrawalMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                提交中...
+                              </>
+                            ) : (
+                              "提交申请"
+                            )}
                           </Button>
                         </div>
                       </form>

@@ -143,29 +143,30 @@ export class DatabaseStorage implements IStorage {
     priceMin?: number;
     priceMax?: number;
   }): Promise<TherapistWithUser[]> {
-    let query = db
-      .select()
-      .from(therapists)
-      .innerJoin(users, eq(therapists.userId, users.id))
-      .where(eq(therapists.isVerified, true));
-
+    const conditions = [eq(therapists.isVerified, true)];
+    
     if (filters?.specialty) {
-      query = query.where(sql`${therapists.specialties} @> ${[filters.specialty]}`);
+      conditions.push(sql`${therapists.specialties} @> ${[filters.specialty]}`);
     }
 
     if (filters?.consultationType) {
-      query = query.where(sql`${therapists.consultationMethods} @> ${[filters.consultationType]}`);
+      conditions.push(sql`${therapists.consultationMethods} @> ${[filters.consultationType]}`);
     }
 
     if (filters?.priceMin) {
-      query = query.where(gte(therapists.hourlyRate, filters.priceMin.toString()));
+      conditions.push(gte(therapists.hourlyRate, filters.priceMin.toString()));
     }
 
     if (filters?.priceMax) {
-      query = query.where(lte(therapists.hourlyRate, filters.priceMax.toString()));
+      conditions.push(lte(therapists.hourlyRate, filters.priceMax.toString()));
     }
 
-    const results = await query.orderBy(desc(therapists.rating));
+    const results = await db
+      .select()
+      .from(therapists)
+      .innerJoin(users, eq(therapists.userId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(therapists.rating));
     
     return results.map(result => ({
       ...result.therapists,
@@ -450,25 +451,25 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<TherapistEarnings[]> {
-    let query = db.select().from(therapistEarnings)
-      .where(eq(therapistEarnings.therapistId, therapistId));
+    let query;
 
+    const earningsConditions = [eq(therapistEarnings.therapistId, therapistId)];
+    
     if (filters?.status) {
-      query = query.where(and(
-        eq(therapistEarnings.therapistId, therapistId),
-        eq(therapistEarnings.status, filters.status)
-      ));
+      earningsConditions.push(eq(therapistEarnings.status, filters.status));
     }
 
     if (filters?.dateFrom && filters?.dateTo) {
-      query = query.where(and(
-        eq(therapistEarnings.therapistId, therapistId),
+      earningsConditions.push(
         gte(therapistEarnings.earnedAt, filters.dateFrom),
         lte(therapistEarnings.earnedAt, filters.dateTo)
-      ));
+      );
     }
 
-    return await query.orderBy(desc(therapistEarnings.earnedAt));
+    return await db.select()
+      .from(therapistEarnings)
+      .where(and(...earningsConditions))
+      .orderBy(desc(therapistEarnings.earnedAt));
   }
 
   async createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings> {
@@ -484,6 +485,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(therapistEarnings.id, id))
       .returning();
     return result;
+  }
+
+  async getTherapistEarningsByAppointment(appointmentId: number): Promise<TherapistEarnings | undefined> {
+    const [earning] = await db.select()
+      .from(therapistEarnings)
+      .where(eq(therapistEarnings.appointmentId, appointmentId));
+    return earning;
   }
 
   async getTherapistWalletSummary(therapistId: number): Promise<{
