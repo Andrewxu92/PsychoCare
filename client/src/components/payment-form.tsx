@@ -67,7 +67,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
       setCustomer(customerData);
 
       // Step 4: Create payment intent
-      console.log('Creating payment intent with amount:', amount, 'HKD');
+      console.log('Creating payment intent...');
       const intentRes = await apiRequest('POST', '/api/payments/intent', {
         amount: amount,
         currency: 'HKD',
