@@ -29,7 +29,8 @@ import {
   Eye,
   EyeOff,
   ArrowDownToLine,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -290,8 +291,21 @@ export default function TherapistWallet() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">钱包管理</h1>
-          <p className="text-gray-600">管理您的收入、提现和收款账户</p>
+          <div className="flex items-center gap-4 mb-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.history.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">钱包管理</h1>
+              <p className="text-gray-600">管理您的收入、提现和收款账户</p>
+            </div>
+          </div>
         </div>
 
         {/* Wallet Summary Cards */}
