@@ -403,7 +403,7 @@ export default function TherapistWallet() {
                         </div>
                         <div className="text-center">
                           <p className="font-bold text-green-600">HK${earning.netAmount}</p>
-                          <p className="text-xs text-gray-500">手续费: HK${earning.platformFee}</p>
+                          <p className="text-xs text-gray-500">手续费: HK${earning.commission}</p>
                         </div>
                         <div className="text-right">
                           {getStatusBadge(earning.status)}
