@@ -269,7 +269,10 @@ export default function Booking() {
                   <p><span className="font-medium">咨询师:</span> {therapist?.user.firstName} {therapist?.user.lastName}</p>
                   <p><span className="font-medium">时间:</span> {finalAppointment.appointmentDate ? new Date(finalAppointment.appointmentDate).toLocaleString('zh-CN') : '时间待确认'}</p>
                   <p><span className="font-medium">费用:</span> HK${finalAppointment.price && !isNaN(Number(finalAppointment.price)) ? Number(finalAppointment.price).toFixed(0) : '费用待确认'}</p>
-                  <p><span className="font-medium">状态:</span> <Badge className="bg-green-100 text-green-800">已确认</Badge></p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">状态:</span> 
+                    <Badge className="bg-green-100 text-green-800">已确认</Badge>
+                  </div>
                 </div>
               </div>
             )}

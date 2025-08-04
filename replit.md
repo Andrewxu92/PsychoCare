@@ -142,6 +142,9 @@ Changelog:
 - August 04, 2025. Implemented 50% revenue sharing model for therapist earnings
 - August 04, 2025. Created separate demo users configuration file (server/demo-users.ts)
 - August 04, 2025. Added user Andrew Xu (44517059) to demo users with password demo@123
+- August 04, 2025. Fixed critical payment status verification bug: now correctly parses JSON response instead of checking HTTP status
+- August 04, 2025. Resolved booking confirmation page display issues (Invalid Date and NaN amounts) with proper data validation
+- August 04, 2025. Fixed DOM nesting validation warnings by restructuring Badge component usage in confirmation page
 ```
 
 ## User Preferences
