@@ -116,7 +116,12 @@ export default function TherapistWallet() {
   });
 
   const withdrawalForm = useForm<WithdrawalFormData>({
-    resolver: zodResolver(withdrawalFormSchema)
+    resolver: zodResolver(withdrawalFormSchema),
+    defaultValues: {
+      amount: 0,
+      beneficiaryId: undefined,
+      notes: ""
+    }
   });
 
 
