@@ -687,11 +687,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create payment intent using Airwallex demo API
-      const amountInCents = Math.round(amount * 100);
-      
       const intentData = {
         request_id: `req_${Date.now()}_${userId}`,
-        amount: amountInCents, // Convert to cents
+        amount: amount, // Amount in currency units (e.g., 200 for HK$200)
         currency: currency,
         customer_id: customer_id,
         merchant_order_id: `order_${Date.now()}_${userId}`,
@@ -701,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             desc: '专业心理咨询师一对一咨询服务',
             sku: 'counseling-session',
             type: 'service',
-            unit_price: amountInCents,
+            unit_price: amount,
             quantity: 1
           }]
         }
@@ -728,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntent = {
           id: `pi_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           client_secret: `pi_cs_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          amount: Math.round(amount * 100),
+          amount: amount,
           currency: currency,
           customer_id: customer_id,
           status: 'requires_payment_method'
@@ -751,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentResult = {
         id: payment_intent_id,
         status: 'succeeded',
-        amount_received: appointment_data?.price ? Math.round(appointment_data.price * 100) : 0,
+        amount_received: appointment_data?.price || 0,
         currency: 'HKD'
       };
 
