@@ -495,7 +495,7 @@ export default function Dashboard() {
                                     {new Date(appointment.appointmentDate).toLocaleString('zh-CN')}
                                   </div>
                                   <div className="text-sm text-neutral-600">
-                                    ¥{Number(appointment.price).toFixed(0)}
+                                    HK${Number(appointment.price).toFixed(0)}
                                   </div>
                                 </div>
                               </div>

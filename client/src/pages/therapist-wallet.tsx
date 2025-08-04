@@ -650,7 +650,7 @@ export default function TherapistWallet() {
                     <DialogHeader>
                       <DialogTitle>申请提现</DialogTitle>
                       <DialogDescription>
-                        可提现余额: ¥{walletSummary?.availableBalance || 0}
+                        可提现余额: HK${walletSummary?.availableBalance || 0}
                       </DialogDescription>
                     </DialogHeader>
                     <Form {...withdrawalForm}>
