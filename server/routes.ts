@@ -393,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If payment status changed to "paid", create earnings record
       if (updates.paymentStatus === "paid" && appointment.paymentStatus !== "paid") {
         const appointmentPrice = parseFloat(appointment.price);
-        const commission = appointmentPrice * 0.1; // 10% platform commission
+        const commission = appointmentPrice * 0.5; // 50% platform commission
         const netAmount = appointmentPrice - commission;
 
         await storage.createTherapistEarnings({
@@ -769,6 +769,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const appointment = await storage.createAppointment(appointmentData);
+        
+        // Create earnings record when payment is confirmed
+        const appointmentPrice = parseFloat(appointment_data.price);
+        const commission = appointmentPrice * 0.5; // 50% platform commission
+        const netAmount = appointmentPrice - commission;
+
+        await storage.createTherapistEarnings({
+          therapistId: appointment_data.therapistId,
+          appointmentId: appointment.id,
+          amount: appointmentPrice,
+          commission,
+          netAmount,
+          status: "pending", // Will be "available" after session completion
+        });
         
         res.json({
           payment: paymentResult,
