@@ -129,13 +129,20 @@ export default function TherapistWallet() {
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
-      toast({ title: "收款账户添加成功" });
-      setLocation("/bind-beneficiary-success");
+      setShowAirwallexForm(false);
+      toast({ 
+        title: "收款账户绑定成功",
+        description: "您的收款账户已成功添加到系统中"
+      });
     },
     onError: (error) => {
       console.error('Add beneficiary error:', error);
-      toast({ title: "添加失败", description: "请检查输入信息", variant: "destructive" });
-      setLocation("/bind-beneficiary-failure");
+      setShowAirwallexForm(false);
+      toast({ 
+        title: "绑定失败", 
+        description: "请检查输入信息或重试", 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -223,6 +230,21 @@ export default function TherapistWallet() {
   const handleViewBeneficiaryDetails = (beneficiary: any) => {
     setSelectedBeneficiary(beneficiary);
     setBeneficiaryDetailsOpen(true);
+  };
+
+  const getCurrencyFlag = (currency: string) => {
+    const flags = {
+      'USD': '🇺🇸',
+      'CNY': '🇨🇳', 
+      'EUR': '🇪🇺',
+      'JPY': '🇯🇵',
+      'GBP': '🇬🇧',
+      'HKD': '🇭🇰',
+      'SGD': '🇸🇬',
+      'AUD': '🇦🇺',
+      'CAD': '🇨🇦'
+    };
+    return flags[currency as keyof typeof flags] || '💰';
   };
 
   if (!therapistId) {
@@ -491,7 +513,11 @@ export default function TherapistWallet() {
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <p className="font-medium">{beneficiary.accountName}</p>
+                              <p className="font-medium">{beneficiary.accountHolderName}</p>
+                              <span className="text-lg">{getCurrencyFlag(beneficiary.currency)}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {beneficiary.currency}
+                              </Badge>
                               {beneficiary.isDefault && (
                                 <Badge variant="default">默认</Badge>
                               )}
