@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { findDemoUser, validatePassword, validateVerificationCode } from "./demo-users";
 import { z } from "zod";
 import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema, insertTherapistEarningsSchema, insertTherapistBeneficiarySchema, insertWithdrawalRequestSchema } from "@shared/schema";
 import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken, makeAirwallexRequest } from "./airwallex-config";
@@ -802,55 +803,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { emailOrPhone, password, verificationCode } = req.body;
       
-      // Demo users
-      const demoUsers = [
-        {
-          id: "demo_client_001",
-          email: "client@demo.com",
-          phone: "13800138001",
-          password: "demo123",
-          firstName: "张",
-          lastName: "三",
-          profileImageUrl: null,
-          role: "client"
-        },
-        {
-          id: "demo_therapist_001", 
-          email: "therapist@demo.com",
-          phone: "13800138002",
-          password: "demo123",
-          firstName: "李",
-          lastName: "医生",
-          profileImageUrl: null,
-          role: "therapist"
-        },
-        {
-          id: "44517059",
-          email: "andrewxu1992@gmail.com",
-          phone: "13800138003",
-          password: "demo@123",
-          firstName: "Andrew",
-          lastName: "Xu",
-          profileImageUrl: null,
-          role: "client"
-        }
-      ];
-
       // Find user by email or phone
-      const user = demoUsers.find(u => 
-        u.email === emailOrPhone || u.phone === emailOrPhone
-      );
+      const user = findDemoUser(emailOrPhone);
 
       if (!user) {
         return res.status(401).json({ message: "用户不存在" });
       }
 
       // Validate password or verification code
-      if (password && user.password !== password) {
+      if (password && !validatePassword(user, password)) {
         return res.status(401).json({ message: "密码错误" });
       }
 
-      if (verificationCode && verificationCode !== "123456") {
+      if (verificationCode && !validateVerificationCode(verificationCode)) {
         return res.status(401).json({ message: "验证码错误" });
       }
 
