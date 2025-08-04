@@ -236,22 +236,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
           </div>
         </div>
 
-        {/* Payment Button */}
-        <Button 
-          onClick={handlePayment}
-          disabled={!acceptedTerms || isProcessing || !isReady}
-          className="w-full"
-          size="lg"
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              处理中...
-            </>
-          ) : (
-            `确认支付 ¥${(amount / 100).toFixed(2)}`
-          )}
-        </Button>
+
       </CardContent>
     </Card>
   );
