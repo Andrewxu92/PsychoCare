@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import Navigation from "@/components/navigation";
 import BookingCalendar from "@/components/booking-calendar";
 import PaymentForm from "@/components/payment-form-simple";
+import PaymentStatusMonitor from "@/components/payment-status-monitor";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -20,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar, Clock, Video, Users, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
 import type { TherapistWithUser } from "@shared/schema";
 
-type BookingStep = 'therapist' | 'datetime' | 'details' | 'payment' | 'confirmation';
+type BookingStep = 'therapist' | 'datetime' | 'details' | 'payment' | 'monitoring' | 'confirmation';
 
 interface BookingData {
   therapistId: number;
@@ -45,6 +46,8 @@ export default function Booking() {
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
+  const [finalAppointment, setFinalAppointment] = useState<any>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -174,14 +177,49 @@ export default function Booking() {
 
   const handlePaymentSuccess = (paymentResult?: any) => {
     console.log('Payment succeeded:', paymentResult);
-    // 支付成功后创建预约
-    handleConfirmBooking();
+    // 支付成功后获取payment intent ID并进入监控阶段
+    const intentId = paymentResult?.intent?.payment_intent_id || 
+                    paymentResult?.intent?.id ||
+                    paymentResult?.id;
+    
+    if (intentId) {
+      setPaymentIntentId(intentId);
+      setCurrentStep('monitoring');
+    } else {
+      toast({
+        title: "支付信息异常",
+        description: "无法获取支付ID，请联系客服",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePaymentFailure = () => {
     console.log('Payment failed');
-    // 支付失败后跳转到失败页面
-    setLocation('/booking-failure');
+    toast({
+      title: "支付失败",
+      description: "支付过程中出现问题，请重新尝试",
+      variant: "destructive",
+    });
+    setCurrentStep('payment'); // 回到支付步骤
+  };
+
+  const handleMonitoringSuccess = (appointment: any) => {
+    setFinalAppointment(appointment);
+    setCurrentStep('confirmation');
+    toast({
+      title: "预约成功",
+      description: "您的咨询预约已成功创建！",
+    });
+  };
+
+  const handleMonitoringFailure = (error: string) => {
+    toast({
+      title: "预约创建失败",
+      description: error,
+      variant: "destructive",
+    });
+    setCurrentStep('payment'); // 回到支付步骤重试
   };
 
   const handleConfirmBooking = () => {
@@ -216,10 +254,22 @@ export default function Booking() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <Card className="text-center p-12">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-neutral-900 mb-4">预约提交成功！</h1>
+            <h1 className="text-3xl font-bold text-neutral-900 mb-4">预约创建成功！</h1>
             <p className="text-lg text-neutral-600 mb-8">
-              您的咨询预约已成功提交，咨询师会在24小时内确认您的预约。
+              您的咨询预约已成功创建并确认，咨询师已收到您的预约信息。
             </p>
+            {finalAppointment && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8 text-left">
+                <h3 className="font-semibold text-lg mb-4">预约详情</h3>
+                <div className="space-y-2">
+                  <p><span className="font-medium">预约ID:</span> {finalAppointment.id}</p>
+                  <p><span className="font-medium">咨询师:</span> {therapist?.user.firstName} {therapist?.user.lastName}</p>
+                  <p><span className="font-medium">时间:</span> {new Date(finalAppointment.appointmentDate).toLocaleString('zh-CN')}</p>
+                  <p><span className="font-medium">费用:</span> HK${Number(finalAppointment.price).toFixed(0)}</p>
+                  <p><span className="font-medium">状态:</span> <Badge className="bg-green-100 text-green-800">已确认</Badge></p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
               <Button onClick={() => setLocation('/dashboard')}>
                 查看我的预约
@@ -292,6 +342,7 @@ export default function Booking() {
                   {currentStep === 'datetime' && '选择时间'}
                   {currentStep === 'details' && '填写详细信息'}
                   {currentStep === 'payment' && '确认支付'}
+                  {currentStep === 'monitoring' && '确认预约'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -400,6 +451,16 @@ export default function Booking() {
                     isLoading={createAppointmentMutation.isPending}
                   />
                 )}
+
+                {/* Payment Status Monitoring */}
+                {currentStep === 'monitoring' && paymentIntentId && (
+                  <PaymentStatusMonitor
+                    paymentIntentId={paymentIntentId}
+                    appointmentData={bookingData}
+                    onSuccess={handleMonitoringSuccess}
+                    onFailure={handleMonitoringFailure}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -496,13 +557,13 @@ export default function Booking() {
           <Button
             variant="outline"
             onClick={handlePrevious}
-            disabled={currentStep === 'therapist'}
+            disabled={currentStep === 'therapist' || currentStep === 'monitoring'}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             上一步
           </Button>
           
-          {currentStep !== 'payment' ? (
+          {currentStep !== 'payment' && currentStep !== 'monitoring' ? (
             <Button
               onClick={handleNext}
               disabled={
