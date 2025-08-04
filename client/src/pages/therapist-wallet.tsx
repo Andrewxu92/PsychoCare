@@ -63,6 +63,7 @@ export default function TherapistWallet() {
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any>(null);
   const [beneficiaryDetailsOpen, setBeneficiaryDetailsOpen] = useState(false);
+  const [isBindingInProgress, setIsBindingInProgress] = useState(false);
   const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
@@ -130,6 +131,7 @@ export default function TherapistWallet() {
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
       setShowAirwallexForm(false);
+      setIsBindingInProgress(false);
       toast({ 
         title: "收款账户绑定成功",
         description: "您的收款账户已成功添加到系统中"
@@ -138,6 +140,7 @@ export default function TherapistWallet() {
     onError: (error) => {
       console.error('Add beneficiary error:', error);
       setShowAirwallexForm(false);
+      setIsBindingInProgress(false);
       toast({ 
         title: "绑定失败", 
         description: "请检查输入信息或重试", 
@@ -189,10 +192,13 @@ export default function TherapistWallet() {
     console.log('Beneficiary form submit result:', beneficiaryData);
     console.log('Airwallex SDK raw result:', JSON.stringify(beneficiaryData, null, 2));
     
+    // Show binding progress overlay
+    setIsBindingInProgress(true);
+    setShowAirwallexForm(false);
+    
     // Send complete Airwallex SDK result to API
     console.log('Sending complete Airwallex data to API:', beneficiaryData);
     createBeneficiaryMutation.mutate(beneficiaryData);
-    setShowAirwallexForm(false);
   };
 
   const toggleAccountVisibility = (id: number) => {
@@ -812,6 +818,21 @@ export default function TherapistWallet() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Binding Progress Overlay */}
+        {isBindingInProgress && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center shadow-xl">
+              <div className="flex items-center justify-center mb-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">正在绑定收款账户</h3>
+              <p className="text-gray-600 text-sm">
+                正在将您的银行账户信息保存到系统中，请稍候...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
