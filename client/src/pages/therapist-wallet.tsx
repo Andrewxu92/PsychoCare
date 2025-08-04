@@ -30,14 +30,16 @@ import {
   EyeOff
 } from "lucide-react";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
-// Form schemas
+// Form schemas - Updated to match database schema
 const beneficiaryFormSchema = z.object({
-  accountType: z.enum(["bank", "alipay", "wechat_pay"]),
+  accountType: z.string(),
   bankName: z.string().optional(),
   accountNumber: z.string().min(1, "账户号码是必填项"),
-  accountName: z.string().min(1, "账户名是必填项"),
-  swiftCode: z.string().optional(),
+  accountHolderName: z.string().min(1, "账户持有人姓名是必填项"),
+  currency: z.string().default("USD"),
+  airwallexBeneficiaryId: z.string().min(1, "Airwallex受益人ID是必填项"),
   isDefault: z.boolean().default(false)
 });
 
@@ -52,20 +54,25 @@ type WithdrawalFormData = z.infer<typeof withdrawalFormSchema>;
 
 export default function TherapistWallet() {
   const { user } = useAuth();
+  const typedUser = user as { id: number } | undefined;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAccountNumbers, setShowAccountNumbers] = useState<Record<number, boolean>>({});
   const [beneficiaryDialogOpen, setBeneficiaryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
+  const [selectedBeneficiary, setSelectedBeneficiary] = useState<any>(null);
+  const [beneficiaryDetailsOpen, setBeneficiaryDetailsOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
-  const { data: therapist } = useQuery<{ id: number }>({
-    queryKey: [`/api/therapists/by-user/${user?.id}`],
-    enabled: !!user?.id
+  const { data: therapist = undefined } = useQuery<{ id: number } | undefined>({
+    queryKey: [`/api/therapists/by-user/${typedUser?.id}`],
+    enabled: !!typedUser?.id
   });
 
   const therapistId = therapist?.id;
+  console.log('这个是therapistID:', therapistId);
 
   // Wallet summary query
   const { data: walletSummary, isLoading: summaryLoading } = useQuery<{
@@ -111,16 +118,43 @@ export default function TherapistWallet() {
 
   // Mutations
   const createBeneficiaryMutation = useMutation({
-    mutationFn: (data: BeneficiaryFormData) =>
-      apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data),
+    mutationFn: (data: any) => {
+      console.log('API Request Data:', data);
+      console.log('therapistId in mutation:', therapistId);
+      console.log('API URL:', `/api/therapists/${therapistId}/beneficiaries`);
+      return apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data);
+    },
     onSuccess: () => {
+      console.log('Beneficiary added successfully');
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
-      toast({ title: "收款账户添加成功" });
+      setShowAirwallexForm(false);
+      toast({ 
+        title: "收款账户绑定成功",
+        description: "您的收款账户已成功添加到系统中"
+      });
+    },
+    onError: (error) => {
+      console.error('Add beneficiary error:', error);
+      setShowAirwallexForm(false);
+      toast({ 
+        title: "绑定失败", 
+        description: "请检查输入信息或重试", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const deleteBeneficiaryMutation = useMutation({
+    mutationFn: (beneficiaryId: number) =>
+      apiRequest("DELETE", `/api/therapists/${therapistId}/beneficiaries/${beneficiaryId}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
+      toast({ title: "收款账户已删除" });
     },
     onError: () => {
-      toast({ title: "添加失败", description: "请检查输入信息", variant: "destructive" });
+      toast({ title: "删除失败", variant: "destructive" });
     }
   });
 
@@ -140,7 +174,11 @@ export default function TherapistWallet() {
   });
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
+    console.log('onBeneficiarySubmit', data);
+    console.log('therapistId in onBeneficiarySubmit:', therapistId);
+    console.log('createBeneficiaryMutation:', createBeneficiaryMutation);
     createBeneficiaryMutation.mutate(data);
+    console.log('mutate called');
   };
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
@@ -148,22 +186,12 @@ export default function TherapistWallet() {
   };
 
   const handleAirwallexSuccess = (beneficiaryData: any) => {
-    console.log('Airwallex beneficiary created:', beneficiaryData);
+    console.log('Beneficiary form submit result:', beneficiaryData);
+    console.log('Airwallex SDK raw result:', JSON.stringify(beneficiaryData, null, 2));
     
-    // Create beneficiary record in our database using Airwallex data
-    const beneficiaryPayload = {
-      accountType: beneficiaryData.type || 'bank',
-      bankName: beneficiaryData.bank_details?.bank_name || '',
-      accountNumber: beneficiaryData.bank_details?.account_number || beneficiaryData.account_number || '',
-      accountName: beneficiaryData.first_name && beneficiaryData.last_name 
-        ? `${beneficiaryData.first_name} ${beneficiaryData.last_name}`
-        : beneficiaryData.account_name || '',
-      swiftCode: beneficiaryData.bank_details?.swift_code || '',
-      isDefault: false,
-      airwallexBeneficiaryId: beneficiaryData.id // Store Airwallex beneficiary ID
-    };
-
-    createBeneficiaryMutation.mutate(beneficiaryPayload);
+    // Send complete Airwallex SDK result to API
+    console.log('Sending complete Airwallex data to API:', beneficiaryData);
+    createBeneficiaryMutation.mutate(beneficiaryData);
     setShowAirwallexForm(false);
   };
 
@@ -191,6 +219,32 @@ export default function TherapistWallet() {
     
     const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: "outline" as const };
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const handleDeleteBeneficiary = (beneficiaryId: number) => {
+    if (confirm("确定要删除这个收款账户吗？")) {
+      deleteBeneficiaryMutation.mutate(beneficiaryId);
+    }
+  };
+
+  const handleViewBeneficiaryDetails = (beneficiary: any) => {
+    setSelectedBeneficiary(beneficiary);
+    setBeneficiaryDetailsOpen(true);
+  };
+
+  const getCurrencyFlag = (currency: string) => {
+    const flags = {
+      'USD': '🇺🇸',
+      'CNY': '🇨🇳', 
+      'EUR': '🇪🇺',
+      'JPY': '🇯🇵',
+      'GBP': '🇬🇧',
+      'HKD': '🇭🇰',
+      'SGD': '🇸🇬',
+      'AUD': '🇦🇺',
+      'CAD': '🇨🇦'
+    };
+    return flags[currency as keyof typeof flags] || '💰';
   };
 
   if (!therapistId) {
@@ -412,12 +466,12 @@ export default function TherapistWallet() {
 
                         <FormField
                           control={beneficiaryForm.control}
-                          name="accountName"
+                          name="accountHolderName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>账户名</FormLabel>
+                              <FormLabel>账户持有人姓名</FormLabel>
                               <FormControl>
-                                <Input placeholder="请输入账户名" {...field} />
+                                <Input placeholder="请输入账户持有人姓名" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -459,7 +513,11 @@ export default function TherapistWallet() {
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <p className="font-medium">{beneficiary.accountName}</p>
+                              <p className="font-medium">{beneficiary.accountHolderName}</p>
+                              <span className="text-lg">{getCurrencyFlag(beneficiary.currency)}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {beneficiary.currency}
+                              </Badge>
                               {beneficiary.isDefault && (
                                 <Badge variant="default">默认</Badge>
                               )}
@@ -489,6 +547,21 @@ export default function TherapistWallet() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewBeneficiaryDetails(beneficiary)}
+                          >
+                            查看详情
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteBeneficiary(beneficiary.id)}
+                            disabled={deleteBeneficiaryMutation.isPending}
+                          >
+                            删除
+                          </Button>
                           {beneficiary.isActive ? (
                             <CheckCircle className="h-5 w-5 text-green-500" />
                           ) : (
@@ -661,6 +734,84 @@ export default function TherapistWallet() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Beneficiary Details Dialog */}
+        <Dialog open={beneficiaryDetailsOpen} onOpenChange={setBeneficiaryDetailsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>收款账户详细信息</DialogTitle>
+            </DialogHeader>
+            {selectedBeneficiary && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">账户持有人</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountHolderName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">账户类型</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountType}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">账户号码</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">银行名称</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">货币</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.currency}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Airwallex ID</label>
+                    <p className="mt-1 text-sm text-gray-900 font-mono text-xs">{selectedBeneficiary.airwallexBeneficiaryId}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">状态</label>
+                    <p className="mt-1">
+                      {selectedBeneficiary.isActive ? (
+                        <Badge variant="default" className="bg-green-100 text-green-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          活跃
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-red-100 text-red-800">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          非活跃
+                        </Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">创建时间</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedBeneficiary.createdAt 
+                        ? format(new Date(selectedBeneficiary.createdAt), "yyyy-MM-dd HH:mm")
+                        : '未知'
+                      }
+                    </p>
+                  </div>
+                </div>
+                
+                {selectedBeneficiary.airwallexRawData && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Airwallex 原始数据</label>
+                    <div className="mt-2 bg-gray-50 p-4 rounded-lg">
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                        {JSON.stringify(JSON.parse(selectedBeneficiary.airwallexRawData), null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button onClick={() => setBeneficiaryDetailsOpen(false)}>关闭</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

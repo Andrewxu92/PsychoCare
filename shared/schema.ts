@@ -151,6 +151,7 @@ export const therapistBeneficiaries = pgTable("therapist_beneficiaries", {
   currency: varchar("currency").notNull().default("CNY"),
   isDefault: boolean("is_default").default(false),
   isActive: boolean("is_active").default(true),
+  airwallexRawData: text("airwallex_raw_data"), // Store complete Airwallex SDK result
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

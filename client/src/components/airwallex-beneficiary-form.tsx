@@ -29,11 +29,12 @@ export default function AirwallexBeneficiaryForm({
 }: AirwallexBeneficiaryFormProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const elementRef = useRef<any>(null);
   const mountedRef = useRef(false);
   const { toast } = useToast();
-  const [isFormLoaded, setIsFormLoaded] = useState(false); // 新增状态，用于判断表单是否加载完成
+  const [isFormLoaded, setIsFormLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -215,10 +216,29 @@ export default function AirwallexBeneficiaryForm({
   const handleNext = async () => {
     if (elementRef.current) {
       try {
+        setIsSubmitting(true);
+        toast({
+          title: "正在绑定账户...",
+          description: "请稍候，正在处理您的收款账户信息",
+        });
+        
         const result = await elementRef.current.submit();
         console.log("Beneficiary form submit result:", result);
+        console.log("Airwallex SDK raw result:", JSON.stringify(result, null, 2));
+        console.log("Result type:", typeof result);
+        console.log("Result keys:", result ? Object.keys(result) : 'null/undefined');
+        
+        // 调用 onSuccess 回调，传递 Airwallex 返回的数据
+        onSuccess(result);
       } catch (err) {
+        setIsSubmitting(false);
         console.error("Error submitting beneficiary form:", err);
+        // 如果有错误，可以调用 onClose 或显示错误信息
+        toast({
+          title: "提交失败",
+          description: "请检查表单信息并重试",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -272,8 +292,19 @@ export default function AirwallexBeneficiaryForm({
         />
 
         {isFormLoaded && (
-          <Button onClick={handleNext} className="mt-4">
-            下一步
+          <Button 
+            onClick={handleNext} 
+            className="mt-4"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                绑定中...
+              </>
+            ) : (
+              "下一步绑定"
+            )}
           </Button>
         )}
       </CardContent>
