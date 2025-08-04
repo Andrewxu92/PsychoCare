@@ -156,12 +156,12 @@ export default function Dashboard() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, paymentStatus?: string) => {
     switch (status) {
+      case 'pending': 
+        return paymentStatus === 'paid' ? '待确认' : '待支付';
       case 'confirmed':
         return '已确认';
-      case 'pending':
-        return '待确认';
       case 'completed':
         return '已完成';
       case 'cancelled':
@@ -413,7 +413,7 @@ export default function Dashboard() {
                               <div className="text-right">
                                 <Badge className={getStatusColor(appointment.status)}>
                                   {getStatusIcon(appointment.status)}
-                                  <span className="ml-1">{getStatusText(appointment.status)}</span>
+                                  <span className="ml-1">{getStatusText(appointment.status, appointment.paymentStatus)}</span>
                                 </Badge>
                                 {user?.role === 'therapist' && appointment.status === 'pending' && (
                                   <div className="flex space-x-2 mt-2">
@@ -500,7 +500,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
                               <Badge className={getStatusColor(appointment.status)}>
-                                {getStatusText(appointment.status)}
+                                {getStatusText(appointment.status, appointment.paymentStatus)}
                               </Badge>
                             </div>
                           </div>
@@ -608,7 +608,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-right">
                               <Badge className={getStatusColor(appointment.status)}>
-                                {getStatusText(appointment.status)}
+                                {getStatusText(appointment.status, appointment.paymentStatus)}
                               </Badge>
                               {appointment.status === 'completed' && user?.role === 'client' && (
                                 <Button size="sm" variant="outline" className="mt-2">
