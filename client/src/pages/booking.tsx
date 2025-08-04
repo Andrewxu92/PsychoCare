@@ -199,7 +199,7 @@ export default function Booking() {
       appointmentDate: bookingData.appointmentDate,
       consultationType: bookingData.consultationType,
       clientNotes: bookingData.clientNotes,
-      price: (bookingData.price / 100).toFixed(2), // 转换为小数格式的字符串
+      price: Number(bookingData.price).toFixed(2), // 保持原始价格格式
       status: 'pending',
       paymentStatus: 'pending',
     });
