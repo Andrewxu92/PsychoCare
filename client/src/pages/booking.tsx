@@ -42,6 +42,7 @@ export default function Booking() {
     therapistId: therapistId ? parseInt(therapistId) : undefined,
     consultationType: 'online',
     clientNotes: '',
+    price: 0, // 初始化价格字段
   });
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -147,10 +148,12 @@ export default function Booking() {
 
   const handleNext = () => {
     if (currentStep === 'therapist' && therapist) {
+      const hourlyRate = Number(therapist.hourlyRate);
+      console.log("Setting therapist hourly rate:", hourlyRate);
       setBookingData(prev => ({ 
         ...prev, 
         therapistId: therapist.id,
-        price: Number(therapist.hourlyRate)
+        price: hourlyRate
       }));
       setCurrentStep('datetime');
     } else if (currentStep === 'datetime' && selectedDate && selectedTime) {
@@ -264,8 +267,8 @@ export default function Booking() {
                 <div className="space-y-2">
                   <p><span className="font-medium">预约ID:</span> {finalAppointment.id}</p>
                   <p><span className="font-medium">咨询师:</span> {therapist?.user.firstName} {therapist?.user.lastName}</p>
-                  <p><span className="font-medium">时间:</span> {new Date(finalAppointment.appointmentDate).toLocaleString('zh-CN')}</p>
-                  <p><span className="font-medium">费用:</span> HK${Number(finalAppointment.price).toFixed(0)}</p>
+                  <p><span className="font-medium">时间:</span> {finalAppointment.appointmentDate ? new Date(finalAppointment.appointmentDate).toLocaleString('zh-CN') : '时间待确认'}</p>
+                  <p><span className="font-medium">费用:</span> HK${finalAppointment.price && !isNaN(Number(finalAppointment.price)) ? Number(finalAppointment.price).toFixed(0) : '费用待确认'}</p>
                   <p><span className="font-medium">状态:</span> <Badge className="bg-green-100 text-green-800">已确认</Badge></p>
                 </div>
               </div>
