@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { createElement, init, ElementTypes } from "@airwallex/components-sdk";
 
 declare global {
   interface Window {
@@ -32,6 +33,7 @@ export default function AirwallexBeneficiaryForm({
   const elementRef = useRef<any>(null);
   const mountedRef = useRef(false);
   const { toast } = useToast();
+  const [isFormLoaded, setIsFormLoaded] = useState(false); // 新增状态，用于判断表单是否加载完成
 
   useEffect(() => {
     let isMounted = true;
@@ -46,7 +48,7 @@ export default function AirwallexBeneficiaryForm({
         if (!window.AirwallexComponentsSDK) {
           const script = document.createElement("script");
           script.src =
-            "https://checkout.airwallex.com/assets/elements.bundle.min.js";
+            "https://static.airwallex.com/components/sdk/v1/index.js";
           script.async = true;
           document.head.appendChild(script);
 
@@ -59,11 +61,8 @@ export default function AirwallexBeneficiaryForm({
 
         if (!isMounted) return;
 
-        // Get authentication config from server //需要重写
-        const response = await apiRequest(
-          "POST",
-          "/api/v1/authentication/authorize",
-        );
+        // Get authentication config from server
+        const response = await apiRequest("POST", "/api/airwallex/auth");
         const authResponse = await response.json();
 
         if (
@@ -85,8 +84,8 @@ export default function AirwallexBeneficiaryForm({
 
         // Wait for SDK to be available
         let retries = 0;
-        while (!window.AirwallexComponentsSDK && retries < 50) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
+        while (!window.AirwallexComponentsSDK && retries < 30) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
           retries++;
         }
 
@@ -100,7 +99,7 @@ export default function AirwallexBeneficiaryForm({
 
         // Initialize Airwallex SDK
         await init({
-          locale: "en",
+          locale: "zh",
           env: authResponse.environment === "prod" ? "prod" : "demo",
           authCode: authResponse.authCode,
           clientId: authResponse.clientId,
@@ -167,6 +166,7 @@ export default function AirwallexBeneficiaryForm({
 
           if (isMounted) {
             setIsLoading(false);
+            setIsFormLoaded(true); // 表单加载完成，设置状态为 true
             toast({
               title: "表单加载成功",
               description: "请填写您的收款账户信息",
@@ -210,6 +210,28 @@ export default function AirwallexBeneficiaryForm({
       containerRef.current.innerHTML = "";
     }
     // The useEffect will automatically re-run due to error state change
+  };
+
+  const handleNext = async () => {
+    if (elementRef.current) {
+      try {
+        const result = await elementRef.current.submit();
+        console.log("Beneficiary form submit result:", result);
+        console.log("Airwallex SDK raw result:", JSON.stringify(result, null, 2));
+        console.log("Result type:", typeof result);
+        console.log("Result keys:", result ? Object.keys(result) : 'null/undefined');
+        // 调用 onSuccess 回调，传递 Airwallex 返回的数据
+        onSuccess(result);
+      } catch (err) {
+        console.error("Error submitting beneficiary form:", err);
+        // 如果有错误，可以调用 onClose 或显示错误信息
+        toast({
+          title: "提交失败",
+          description: "请检查表单信息并重试",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   if (error) {
@@ -259,6 +281,12 @@ export default function AirwallexBeneficiaryForm({
           className="min-h-[500px] w-full"
           style={{ display: isLoading ? "none" : "block" }}
         />
+
+        {isFormLoaded && (
+          <Button onClick={handleNext} className="mt-4">
+            下一步
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

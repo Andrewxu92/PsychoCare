@@ -18,6 +18,8 @@ import TherapistRegistration from "@/pages/therapist-registration";
 import TherapistDashboard from "@/pages/therapist-dashboard";
 import TherapistWallet from "@/pages/therapist-wallet";
 import NotFound from "@/pages/not-found";
+import BindBeneficiarySuccess from "@/pages/bind-beneficiary-success";
+import BindBeneficiaryFailure from "@/pages/bind-beneficiary-failure";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -39,6 +41,8 @@ function Router() {
           <Route path="/therapist-registration" component={TherapistRegistration} />
           <Route path="/therapist-dashboard" component={TherapistDashboard} />
           <Route path="/therapist-wallet" component={TherapistWallet} />
+          <Route path="/bind-beneficiary-success" component={BindBeneficiarySuccess} />
+          <Route path="/bind-beneficiary-failure" component={BindBeneficiaryFailure} />
         </>
       )}
       <Route component={NotFound} />

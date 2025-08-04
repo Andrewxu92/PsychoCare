@@ -30,6 +30,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 // Form schemas
 const beneficiaryFormSchema = z.object({
@@ -52,20 +53,23 @@ type WithdrawalFormData = z.infer<typeof withdrawalFormSchema>;
 
 export default function TherapistWallet() {
   const { user } = useAuth();
+  const typedUser = user as { id: number } | undefined;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAccountNumbers, setShowAccountNumbers] = useState<Record<number, boolean>>({});
   const [beneficiaryDialogOpen, setBeneficiaryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
+  const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
-  const { data: therapist } = useQuery<{ id: number }>({
-    queryKey: [`/api/therapists/by-user/${user?.id}`],
-    enabled: !!user?.id
+  const { data: therapist = undefined } = useQuery<{ id: number } | undefined>({
+    queryKey: [`/api/therapists/by-user/${typedUser?.id}`],
+    enabled: !!typedUser?.id
   });
 
   const therapistId = therapist?.id;
+  console.log('这个是therapistID:', therapistId);
 
   // Wallet summary query
   const { data: walletSummary, isLoading: summaryLoading } = useQuery<{
@@ -111,16 +115,24 @@ export default function TherapistWallet() {
 
   // Mutations
   const createBeneficiaryMutation = useMutation({
-    mutationFn: (data: BeneficiaryFormData) =>
-      apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data),
+    mutationFn: (data: BeneficiaryFormData) => {
+      console.log('API Request Data:', data);
+      console.log('therapistId in mutation:', therapistId);
+      console.log('API URL:', `/api/therapists/${therapistId}/beneficiaries`);
+      return apiRequest("POST", `/api/therapists/${therapistId}/beneficiaries`, data);
+    },
     onSuccess: () => {
+      console.log('Beneficiary added successfully');
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/beneficiaries`] });
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
       toast({ title: "收款账户添加成功" });
+      setLocation("/bind-beneficiary-success");
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Add beneficiary error:', error);
       toast({ title: "添加失败", description: "请检查输入信息", variant: "destructive" });
+      setLocation("/bind-beneficiary-failure");
     }
   });
 
@@ -140,7 +152,11 @@ export default function TherapistWallet() {
   });
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
+    console.log('onBeneficiarySubmit', data);
+    console.log('therapistId in onBeneficiarySubmit:', therapistId);
+    console.log('createBeneficiaryMutation:', createBeneficiaryMutation);
     createBeneficiaryMutation.mutate(data);
+    console.log('mutate called');
   };
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
@@ -149,19 +165,22 @@ export default function TherapistWallet() {
 
   const handleAirwallexSuccess = (beneficiaryData: any) => {
     console.log('Airwallex beneficiary created:', beneficiaryData);
+    console.log('Airwallex raw data structure:', JSON.stringify(beneficiaryData, null, 2));
     
     // Create beneficiary record in our database using Airwallex data
+    const beneficiary = beneficiaryData.values?.beneficiary;
+    const bankDetails = beneficiary?.bank_details;
+    
     const beneficiaryPayload = {
-      accountType: beneficiaryData.type || 'bank',
-      bankName: beneficiaryData.bank_details?.bank_name || '',
-      accountNumber: beneficiaryData.bank_details?.account_number || beneficiaryData.account_number || '',
-      accountName: beneficiaryData.first_name && beneficiaryData.last_name 
-        ? `${beneficiaryData.first_name} ${beneficiaryData.last_name}`
-        : beneficiaryData.account_name || '',
-      swiftCode: beneficiaryData.bank_details?.swift_code || '',
+      accountType: 'bank' as const,
+      bankName: bankDetails?.bank_name || '',
+      accountNumber: bankDetails?.account_number || '',
+      accountName: bankDetails?.account_name || '',
+      swiftCode: bankDetails?.swift_code || '',
       isDefault: false,
-      airwallexBeneficiaryId: beneficiaryData.id // Store Airwallex beneficiary ID
+      airwallexBeneficiaryId: beneficiary?.id
     };
+    console.log('Processed beneficiary payload:', beneficiaryPayload);
 
     createBeneficiaryMutation.mutate(beneficiaryPayload);
     setShowAirwallexForm(false);
