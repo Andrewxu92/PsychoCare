@@ -392,13 +392,22 @@ export default function Booking() {
 
                 {/* Payment */}
                 {currentStep === 'payment' && therapist && bookingData.appointmentDate && (
-                  <PaymentForm
-                    amount={Number(therapist.hourlyRate)}
-                    appointmentData={bookingData}
-                    onPaymentSuccess={handlePaymentSuccess}
-                    onPaymentFailure={handlePaymentFailure}
-                    isLoading={createAppointmentMutation.isPending}
-                  />
+                  <>
+                    {/* Debug info */}
+                    {import.meta.env.NODE_ENV === 'development' && (
+                      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                        <p>Debug: therapist.hourlyRate = {therapist.hourlyRate}</p>
+                        <p>Debug: Number(therapist.hourlyRate) = {Number(therapist.hourlyRate)}</p>
+                      </div>
+                    )}
+                    <PaymentForm
+                      amount={Number(therapist.hourlyRate)}
+                      appointmentData={bookingData}
+                      onPaymentSuccess={handlePaymentSuccess}
+                      onPaymentFailure={handlePaymentFailure}
+                      isLoading={createAppointmentMutation.isPending}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
