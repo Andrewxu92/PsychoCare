@@ -138,6 +138,10 @@ Changelog:
 - July 15, 2025. Added database schema for therapist earnings, beneficiaries, and withdrawal requests
 - July 15, 2025. Created complete wallet management interface with masked account numbers and transaction history
 - July 15, 2025. Extended API routes for wallet operations including earnings tracking and beneficiary management
+- August 04, 2025. Fixed payment amount inconsistency and currency display issues
+- August 04, 2025. Implemented 50% revenue sharing model for therapist earnings
+- August 04, 2025. Created separate demo users configuration file (server/demo-users.ts)
+- August 04, 2025. Added user Andrew Xu (44517059) to demo users with password demo@123
 ```
 
 ## User Preferences
