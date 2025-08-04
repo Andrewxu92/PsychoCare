@@ -27,7 +27,9 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowDownToLine,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -310,6 +312,15 @@ export default function TherapistWallet() {
               <div className="text-2xl font-bold text-blue-600">
                 ¥{summaryLoading ? "..." : (walletSummary?.availableBalance || 0).toLocaleString()}
               </div>
+              <Button 
+                onClick={() => setWithdrawalDialogOpen(true)} 
+                className="w-full mt-3"
+                size="sm"
+                disabled={!walletSummary?.availableBalance || walletSummary.availableBalance <= 0}
+              >
+                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                申请提现
+              </Button>
             </CardContent>
           </Card>
 
@@ -690,7 +701,7 @@ export default function TherapistWallet() {
                                         <div>
                                           <div className="font-medium">{beneficiary.accountHolderName}</div>
                                           <div className="text-sm text-gray-500">
-                                            {beneficiary.currency} • {maskAccountNumber(beneficiary.accountNumber)}
+                                            {maskAccountNumber(beneficiary.accountNumber)}
                                           </div>
                                         </div>
                                       </div>
