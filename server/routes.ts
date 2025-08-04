@@ -750,7 +750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: payment_intent_id,
         status: 'succeeded',
         amount_received: appointment_data?.price ? Math.round(appointment_data.price * 100) : 0,
-        currency: 'CNY'
+        currency: 'HKD'
       };
 
       // If payment successful and appointment data provided, create appointment

@@ -320,7 +320,7 @@ export default function Booking() {
                       </div>
                       <div className="text-right">
                         <span className="text-xl font-semibold text-primary">
-                          ¥{Number(therapist.hourlyRate).toFixed(0)}
+                          HK${Number(therapist.hourlyRate).toFixed(0)}
                         </span>
                         <span className="text-sm text-neutral-600">/次</span>
                       </div>
@@ -481,7 +481,7 @@ export default function Booking() {
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-lg">总计</span>
                       <span className="font-semibold text-xl text-primary">
-                        ¥{Number(therapist.hourlyRate).toFixed(0)}
+                        HK${Number(therapist.hourlyRate).toFixed(0)}
                       </span>
                     </div>
                   </>

@@ -199,7 +199,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         <div className="mb-6 p-4 bg-neutral-50 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium">支付金额</span>
-            <span className="text-2xl font-bold text-primary">¥{(amount / 100).toFixed(2)}</span>
+            <span className="text-2xl font-bold text-primary">HK${(amount / 100).toFixed(2)}</span>
           </div>
         </div>
 
