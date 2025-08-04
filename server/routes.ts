@@ -682,15 +682,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { amount, currency = 'HKD', customer_id } = req.body;
 
-      console.log('Payment intent request - received amount:', amount, 'currency:', currency);
-
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
       // Create payment intent using Airwallex demo API
       const amountInCents = Math.round(amount * 100);
-      console.log('Converting amount to cents:', amount, '* 100 =', amountInCents);
       
       const intentData = {
         request_id: `req_${Date.now()}_${userId}`,
