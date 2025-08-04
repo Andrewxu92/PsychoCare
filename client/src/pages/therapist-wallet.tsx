@@ -317,7 +317,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.totalEarnings || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.totalEarnings || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -329,7 +329,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.availableBalance || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.availableBalance || 0).toLocaleString()}
               </div>
               <Button 
                 onClick={() => setWithdrawalDialogOpen(true)} 
@@ -350,7 +350,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-500">
-                ¥{summaryLoading ? "..." : (walletSummary?.pendingAmount || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.pendingAmount || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -362,7 +362,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.withdrawnAmount || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.withdrawnAmount || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -402,8 +402,8 @@ export default function TherapistWallet() {
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="font-bold text-green-600">¥{earning.netAmount}</p>
-                          <p className="text-xs text-gray-500">手续费: ¥{earning.platformFee}</p>
+                          <p className="font-bold text-green-600">HK${earning.netAmount}</p>
+                          <p className="text-xs text-gray-500">手续费: HK${earning.platformFee}</p>
                         </div>
                         <div className="text-right">
                           {getStatusBadge(earning.status)}
@@ -659,7 +659,7 @@ export default function TherapistWallet() {
                         <div className="p-3 bg-blue-50 rounded-lg">
                           <div className="text-sm text-gray-600">可提现余额</div>
                           <div className="text-xl font-semibold text-blue-600">
-                            ¥{walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                            HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
                           </div>
                         </div>
 
@@ -671,7 +671,7 @@ export default function TherapistWallet() {
                               <FormLabel>提现金额</FormLabel>
                               <FormControl>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">¥</span>
+                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">HK$</span>
                                   <Input 
                                     type="number" 
                                     placeholder="0.00"
@@ -685,7 +685,7 @@ export default function TherapistWallet() {
                               </FormControl>
                               <FormMessage />
                               <div className="text-xs text-gray-500">
-                                最大可提现金额: ¥{walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                                最大可提现金额: HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
                               </div>
                             </FormItem>
                           )}
@@ -794,7 +794,7 @@ export default function TherapistWallet() {
                           )}
                         </div>
                         <div className="text-center">
-                          <p className="font-bold text-red-600">-¥{withdrawal.amount}</p>
+                          <p className="font-bold text-red-600">-HK${withdrawal.amount}</p>
                         </div>
                         <div className="text-right">
                           {getStatusBadge(withdrawal.status)}

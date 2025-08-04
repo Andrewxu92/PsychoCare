@@ -113,7 +113,7 @@ export default function TherapistCard({ therapist }: TherapistCardProps) {
         <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
           <div>
             <span className="text-lg font-semibold text-primary">
-              ¥{Number(therapist.hourlyRate).toFixed(0)}
+              HK${Number(therapist.hourlyRate).toFixed(0)}
             </span>
             <span className="text-sm text-neutral-600">/次</span>
           </div>
