@@ -59,7 +59,7 @@ export default function PaymentStatusMonitor({
               consultationType: appointmentData.consultationType,
               clientNotes: appointmentData.clientNotes,
               price: Number(appointmentData.price || 0).toFixed(2),
-              status: 'confirmed',
+              status: 'pending', // 支付成功后状态为pending，等待咨询师确认
               paymentStatus: 'paid',
               paymentIntentId: paymentIntentId
             });
