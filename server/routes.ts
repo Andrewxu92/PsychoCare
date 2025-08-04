@@ -823,6 +823,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: "医生",
           profileImageUrl: null,
           role: "therapist"
+        },
+        {
+          id: "44517059",
+          email: "andrewxu1992@gmail.com",
+          phone: "13800138003",
+          password: "demo@123",
+          firstName: "Andrew",
+          lastName: "Xu",
+          profileImageUrl: null,
+          role: "client"
         }
       ];
 
