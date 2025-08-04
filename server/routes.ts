@@ -407,10 +407,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // If status changed to "completed", make earnings available for withdrawal
+      // If status changed to "completed", create earnings if not exists and make available
       if (updates.status === "completed" && appointment.status !== "completed") {
-        const earnings = await storage.getTherapistEarningsByAppointment(appointment.id);
-        if (earnings) {
+        let earnings = await storage.getTherapistEarningsByAppointment(appointment.id);
+        
+        // Create earnings record if it doesn't exist (for cases where payment status is still pending)
+        if (!earnings && appointment.price && parseFloat(appointment.price) > 0) {
+          const appointmentPrice = parseFloat(appointment.price);
+          const commission = appointmentPrice * 0.5; // 50% platform commission
+          const netAmount = appointmentPrice - commission;
+
+          earnings = await storage.createTherapistEarnings({
+            therapistId: appointment.therapistId,
+            appointmentId: appointment.id,
+            amount: appointmentPrice,
+            commission,
+            netAmount,
+            status: "available", // Directly available since session is completed
+          });
+        } else if (earnings) {
+          // Update existing earnings to available
           await storage.updateTherapistEarnings(earnings.id, { status: "available" });
         }
       }
