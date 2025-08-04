@@ -42,16 +42,30 @@ export default function PaymentStatusMonitor({
           
           // 创建预约
           try {
-            const appointment = await apiRequest("POST", "/api/appointments", {
+            console.log("Creating appointment with data:", {
               therapistId: appointmentData.therapistId,
               appointmentDate: appointmentData.appointmentDate,
               consultationType: appointmentData.consultationType,
               clientNotes: appointmentData.clientNotes,
-              price: Number(appointmentData.price).toFixed(2),
+              price: Number(appointmentData.price || 0).toFixed(2),
               status: 'confirmed',
               paymentStatus: 'paid',
               paymentIntentId: paymentIntentId
             });
+            
+            const response = await apiRequest("POST", "/api/appointments", {
+              therapistId: appointmentData.therapistId,
+              appointmentDate: appointmentData.appointmentDate,
+              consultationType: appointmentData.consultationType,
+              clientNotes: appointmentData.clientNotes,
+              price: Number(appointmentData.price || 0).toFixed(2),
+              status: 'confirmed',
+              paymentStatus: 'paid',
+              paymentIntentId: paymentIntentId
+            });
+            
+            const appointment = await response.json();
+            console.log("Created appointment:", appointment);
             
             onSuccess(appointment);
           } catch (confirmError: any) {
