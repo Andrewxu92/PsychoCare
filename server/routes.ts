@@ -682,14 +682,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { amount, currency = 'HKD', customer_id } = req.body;
 
+      console.log('Payment intent request - received amount:', amount, 'currency:', currency);
+
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
       // Create payment intent using Airwallex demo API
+      const amountInCents = Math.round(amount * 100);
+      console.log('Converting amount to cents:', amount, '* 100 =', amountInCents);
+      
       const intentData = {
         request_id: `req_${Date.now()}_${userId}`,
-        amount: Math.round(amount * 100), // Convert to cents
+        amount: amountInCents, // Convert to cents
         currency: currency,
         customer_id: customer_id,
         merchant_order_id: `order_${Date.now()}_${userId}`,
@@ -699,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             desc: '专业心理咨询师一对一咨询服务',
             sku: 'counseling-session',
             type: 'service',
-            unit_price: Math.round(amount * 100),
+            unit_price: amountInCents,
             quantity: 1
           }]
         }
