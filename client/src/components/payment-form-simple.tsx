@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import React, { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface PaymentFormProps {
   amount: number;
@@ -19,9 +25,15 @@ declare global {
   }
 }
 
-export default function PaymentForm({ amount, appointmentData, onPaymentSuccess, onPaymentFailure, isLoading = false }: PaymentFormProps) {
+export default function PaymentForm({
+  amount,
+  appointmentData,
+  onPaymentSuccess,
+  onPaymentFailure,
+  isLoading = false,
+}: PaymentFormProps) {
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
-  const [paymentError, setPaymentError] = useState<string>('');
+  const [paymentError, setPaymentError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [acceptedTerms, setAcceptedTerms] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
@@ -41,40 +53,43 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
 
   const initializePayment = async () => {
     try {
-      console.log('Starting payment initialization...');
+      console.log("Starting payment initialization...");
 
       // Load Airwallex SDK
       await loadAirwallexSDK();
-      
+
       // Get config
-      const configRes = await apiRequest('GET', '/api/airwallex/config');
+      const configRes = await apiRequest("GET", "/api/airwallex/config");
       const config = await configRes.json();
-      
+
       // Initialize SDK
       await window.AirwallexComponentsSDK.init({
         env: config.environment,
         origin: window.location.origin,
-        enabledElements: ['payments'],
+        enabledElements: ["payments"],
       });
 
       // Create customer
-      const customerRes = await apiRequest('POST', '/api/payments/customer', {});
+      const customerRes = await apiRequest(
+        "POST",
+        "/api/payments/customer",
+        {},
+      );
       const customer = await customerRes.json();
 
       // Create payment intent
-      const intentRes = await apiRequest('POST', '/api/payments/intent', {
+      const intentRes = await apiRequest("POST", "/api/payments/intent", {
         amount: amount,
-        currency: 'HKD',
+        currency: "HKD",
         customer_id: customer.id,
       });
       const intent = await intentRes.json();
 
-      console.log('Payment intent created:', intent.id);
+      console.log("Payment intent created:", intent.id);
       setPaymentIntent(intent);
-
     } catch (error: any) {
-      console.error('Payment initialization error:', error);
-      setPaymentError(`支付初始化失败: ${error.message || '请重试'}`);
+      console.error("Payment initialization error:", error);
+      setPaymentError(`支付初始化失败: ${error.message || "请重试"}`);
     }
   };
 
@@ -85,80 +100,82 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         return;
       }
 
-      const script = document.createElement('script');
-      script.src = 'https://static.airwallex.com/components/sdk/v1/index.js';
+      const script = document.createElement("script");
+      script.src = "https://static.airwallex.com/components/sdk/v1/index.js";
       script.async = true;
       script.onload = () => {
         setTimeout(() => {
           if (window.AirwallexComponentsSDK) {
             resolve();
           } else {
-            reject(new Error('Airwallex SDK not initialized'));
+            reject(new Error("Airwallex SDK not initialized"));
           }
         }, 100);
       };
-      script.onerror = () => reject(new Error('Failed to load Airwallex SDK'));
+      script.onerror = () => reject(new Error("Failed to load Airwallex SDK"));
       document.head.appendChild(script);
     });
   };
 
   const createDropIn = async () => {
     try {
-      console.log('Creating drop-in element...');
-      
+      console.log("Creating drop-in element...");
+
       // Ensure container exists
-      const container = document.getElementById('airwallex-drop-in');
+      const container = document.getElementById("airwallex-drop-in");
       if (!container) {
-        console.error('Container not found, retrying...');
+        console.error("Container not found, retrying...");
         setTimeout(createDropIn, 100);
         return;
       }
 
       // Create element
-      const element = await window.AirwallexComponentsSDK.createElement('dropIn', {
-        intent_id: paymentIntent.id,
-        client_secret: paymentIntent.client_secret,
-        currency: paymentIntent.currency,
-      });
+      const element = await window.AirwallexComponentsSDK.createElement(
+        "dropIn",
+        {
+          intent_id: paymentIntent.id,
+          client_secret: paymentIntent.client_secret,
+          currency: paymentIntent.currency,
+        },
+      );
 
       // Mount element
-      await element.mount('airwallex-drop-in');
+      await element.mount("airwallex-drop-in");
       dropInRef.current = element;
 
       // Add event listeners
-      element.on('ready', () => {
-        console.log('Drop-in element ready');
+      element.on("ready", () => {
+        console.log("Drop-in element ready");
         setIsReady(true);
       });
 
-      element.on('success', (event: any) => {
-        console.log('Payment succeeded:', event.detail);
+      element.on("success", (event: any) => {
+        console.log("Payment succeeded:", event.detail);
         onPaymentSuccess(event.detail);
       });
 
-      element.on('error', (event: any) => {
-        console.error('Payment error:', event.detail);
-        setPaymentError(event.detail.error?.message || 'Payment failed');
+      element.on("error", (event: any) => {
+        console.error("Payment error:", event.detail);
+        setPaymentError(event.detail.error?.message || "Payment failed");
         setIsProcessing(false);
         // 调用失败回调
         if (onPaymentFailure) {
           onPaymentFailure();
         }
       });
-
     } catch (error: any) {
-      console.error('Failed to create drop-in:', error);
-      setPaymentError(`支付组件创建失败: ${error.message || '未知错误'}`);
+      console.error("Failed to create drop-in:", error);
+      setPaymentError(`支付组件创建失败: ${error.message || "未知错误"}`);
     }
   };
 
   const handlePayment = async () => {
     if (!acceptedTerms) {
-      setPaymentError('请先同意服务条款和隐私政策');
+      setPaymentError("请先同意服务条款和隐私政策");
       return;
     }
     setIsProcessing(true);
-    setPaymentError('');
+    setPaymentError("");
   };
 
   if (isLoading) {
@@ -178,9 +195,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>支付信息</CardTitle>
-        <CardDescription>
-          安全支付 - 由 Airwallex 提供支付服务
-        </CardDescription>
+        <CardDescription>安全支付 - 由 Airwallex 提供支付服务</CardDescription>
       </CardHeader>
       <CardContent>
         {paymentError && (
@@ -199,7 +214,9 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         <div className="mb-6 p-4 bg-neutral-50 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium">支付金额</span>
-            <span className="text-2xl font-bold text-primary">HK${(amount / 100).toFixed(2)}</span>
+            <span className="text-2xl font-bold text-primary">
+              HK${amount.toFixed(2)}
+            </span>
           </div>
         </div>
 
@@ -212,10 +229,10 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
             </div>
           </div>
         ) : (
-          <div 
-            id="airwallex-drop-in" 
+          <div
+            id="airwallex-drop-in"
             className="mb-6 min-h-[400px] border border-gray-200 rounded-lg"
-            style={{ minHeight: '400px' }}
+            style={{ minHeight: "400px" }}
           />
         )}
 
@@ -225,18 +242,25 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
             <Checkbox
               id="terms"
               checked={acceptedTerms}
-              onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+              onCheckedChange={(checked) =>
+                setAcceptedTerms(checked as boolean)
+              }
             />
-            <label htmlFor="terms" className="text-sm text-neutral-700 leading-relaxed">
-              我已阅读并同意{' '}
-              <a href="#" className="text-primary hover:underline">服务条款</a>
-              {' '}和{' '}
-              <a href="#" className="text-primary hover:underline">隐私政策</a>
+            <label
+              htmlFor="terms"
+              className="text-sm text-neutral-700 leading-relaxed"
+            >
+              我已阅读并同意{" "}
+              <a href="#" className="text-primary hover:underline">
+                服务条款
+              </a>{" "}
+              和{" "}
+              <a href="#" className="text-primary hover:underline">
+                隐私政策
+              </a>
             </label>
           </div>
         </div>
-
-
       </CardContent>
     </Card>
   );
