@@ -389,6 +389,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       delete updates.clientId; // Prevent changing client
       
       const updatedAppointment = await storage.updateAppointment(id, updates);
+
+      // If payment status changed to "paid", create earnings record
+      if (updates.paymentStatus === "paid" && appointment.paymentStatus !== "paid") {
+        const appointmentPrice = parseFloat(appointment.price);
+        const commission = appointmentPrice * 0.1; // 10% platform commission
+        const netAmount = appointmentPrice - commission;
+
+        await storage.createTherapistEarnings({
+          therapistId: appointment.therapistId,
+          appointmentId: appointment.id,
+          amount: appointmentPrice,
+          commission,
+          netAmount,
+          status: "pending", // Will be "available" after session completion
+        });
+      }
+
+      // If status changed to "completed", make earnings available for withdrawal
+      if (updates.status === "completed" && appointment.status !== "completed") {
+        const earnings = await storage.getTherapistEarningsByAppointment(appointment.id);
+        if (earnings) {
+          await storage.updateTherapistEarnings(earnings.id, { status: "available" });
+        }
+      }
+
       res.json(updatedAppointment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1064,16 +1089,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const withdrawalData = insertWithdrawalRequestSchema.parse({
-        ...req.body,
-        therapistId
+      const { amount, beneficiaryId } = req.body;
+
+      // Validate amount
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "提现金额无效" });
+      }
+
+      // Check available balance
+      const walletSummary = await storage.getTherapistWalletSummary(therapistId);
+      if (walletSummary.availableBalance < amount) {
+        return res.status(400).json({ 
+          message: "可提现余额不足", 
+          availableBalance: walletSummary.availableBalance,
+          requestedAmount: amount
+        });
+      }
+
+      // Get beneficiary details
+      const beneficiaries = await storage.getTherapistBeneficiaries(therapistId);
+      const beneficiary = beneficiaries.find(b => b.id === beneficiaryId);
+      if (!beneficiary) {
+        return res.status(404).json({ message: "收款账户未找到" });
+      }
+
+      // Create withdrawal request
+      const withdrawal = await storage.createWithdrawalRequest({
+        therapistId,
+        beneficiaryId,
+        amount: amount.toString(),
+        currency: beneficiary.currency,
+        status: "pending",
+        requestedAt: new Date(),
       });
 
-      const withdrawal = await storage.createWithdrawalRequest(withdrawalData);
-      res.json(withdrawal);
+      // Mark corresponding earnings as withdrawn
+      const availableEarnings = await storage.getTherapistEarnings(therapistId, { status: "available" });
+      let remainingAmount = amount;
+      
+      for (const earning of availableEarnings) {
+        if (remainingAmount <= 0) break;
+        
+        const earningAmount = parseFloat(earning.netAmount);
+        if (earningAmount <= remainingAmount) {
+          await storage.updateTherapistEarnings(earning.id, { status: "withdrawn" });
+          remainingAmount -= earningAmount;
+        }
+      }
+
+      res.status(201).json({
+        ...withdrawal,
+        beneficiary: {
+          accountHolderName: beneficiary.accountHolderName,
+          currency: beneficiary.currency,
+          accountNumber: beneficiary.accountNumber
+        }
+      });
     } catch (error) {
       console.error("Error creating withdrawal:", error);
-      res.status(500).json({ message: "Failed to create withdrawal" });
+      res.status(500).json({ message: "提现申请失败" });
+    }
+  });
+
+  // Demo API for testing - add sample earnings
+  app.post('/api/demo/add-earnings', customAuth, async (req: any, res) => {
+    try {
+      const sampleEarnings = [
+        {
+          therapistId: 7, // therapist@demo.com
+          appointmentId: 1,
+          amount: "200.00",
+          commission: "30.00", 
+          netAmount: "170.00",
+          currency: "CNY",
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 2,
+          amount: "150.00",
+          commission: "22.50",
+          netAmount: "127.50",
+          currency: "CNY", 
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 3,
+          amount: "180.00",
+          commission: "27.00",
+          netAmount: "153.00",
+          currency: "CNY",
+          status: "pending" as const,
+          earnedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 4,
+          amount: "220.00",
+          commission: "33.00",
+          netAmount: "187.00",
+          currency: "CNY",
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        }
+      ];
+
+      for (const earning of sampleEarnings) {
+        await storage.createTherapistEarnings(earning);
+      }
+
+      res.json({ message: "Sample earnings added", count: sampleEarnings.length });
+    } catch (error) {
+      console.error("Error adding sample earnings:", error);
+      res.status(500).json({ message: "Failed to add sample earnings" });
     }
   });
 
