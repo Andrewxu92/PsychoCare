@@ -1294,7 +1294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const transferResult = await transferResponse.json();
             airwallexTransferId = transferResult.id;
           } else {
-            throw new Error(`Transfer failed: ${transferResponse.status}`);
+            const errorBody = await transferResponse.text();
+            console.error('Airwallex API Error Response:', {
+              status: transferResponse.status,
+              statusText: transferResponse.statusText,
+              body: errorBody
+            });
+            throw new Error(`Transfer failed: ${transferResponse.status} - ${errorBody}`);
           }
           withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
           console.log('Airwallex transfer created successfully with ID:', airwallexTransferId);
