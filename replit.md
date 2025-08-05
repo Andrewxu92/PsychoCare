@@ -150,6 +150,9 @@ Changelog:
 - August 05, 2025. Enhanced therapist wallet interface with dedicated Airwallex wallet form fields and validation
 - August 05, 2025. Fixed account display logic to properly show wallet information instead of traditional account numbers for Airwallex accounts
 - August 05, 2025. Completed comprehensive manual account addition system supporting bank, Alipay, WeChat, and Airwallex wallet options
+- August 05, 2025. Successfully implemented Airwallex Transfers API integration for real withdrawal processing with proper currency handling
+- August 05, 2025. Optimized code by properly reusing makeAirwallexRequest function instead of duplicating API logic
+- August 05, 2025. Fixed form accessibility issues by replacing improper label elements with div elements for display-only content
 ```
 
 ## User Preferences
