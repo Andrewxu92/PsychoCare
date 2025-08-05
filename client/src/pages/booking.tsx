@@ -21,8 +21,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar, Clock, Video, Users, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
 import type { TherapistWithUser } from "@shared/schema";
 
+/**
+ * 预约流程页面
+ * 多步骤预约流程：选择咨询师 -> 选择时间 -> 填写详情 -> 支付 -> 监控支付状态 -> 确认成功
+ */
+
+// 预约流程步骤定义
 type BookingStep = 'therapist' | 'datetime' | 'details' | 'payment' | 'monitoring' | 'confirmation';
 
+// 预约数据接口
 interface BookingData {
   therapistId: number;
   appointmentDate: Date;
@@ -246,7 +253,8 @@ export default function Booking() {
     });
   };
 
-  const getInitials = (firstName?: string, lastName?: string) => {
+  // 辅助函数：获取用户姓名首字母
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}` || 'T';
   };
 
@@ -460,10 +468,16 @@ export default function Booking() {
                 )}
 
                 {/* Payment Status Monitoring */}
-                {currentStep === 'monitoring' && paymentIntentId && (
+                {currentStep === 'monitoring' && paymentIntentId && bookingData.therapistId && bookingData.appointmentDate && (
                   <PaymentStatusMonitor
                     paymentIntentId={paymentIntentId}
-                    appointmentData={bookingData}
+                    appointmentData={{
+                      therapistId: bookingData.therapistId,
+                      appointmentDate: bookingData.appointmentDate,
+                      consultationType: bookingData.consultationType || 'online',
+                      clientNotes: bookingData.clientNotes || '',
+                      price: bookingData.price || 0
+                    }}
                     onSuccess={handleMonitoringSuccess}
                     onFailure={handleMonitoringFailure}
                   />

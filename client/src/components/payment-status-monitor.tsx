@@ -4,12 +4,28 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+/**
+ * 支付状态监控组件
+ * 用于实时监控Airwallex支付状态，并在支付成功后创建或更新预约
+ */
 interface PaymentStatusMonitorProps {
+  /** Airwallex支付意图ID */
   paymentIntentId: string;
-  appointmentData: any;
+  /** 预约数据 */
+  appointmentData: {
+    therapistId: number;
+    appointmentDate: Date;
+    consultationType: 'online' | 'in-person';
+    clientNotes: string;
+    price: number;
+  };
+  /** 支付成功回调 */
   onSuccess: (appointment: any) => void;
+  /** 支付失败回调 */
   onFailure?: (error: string) => void;
+  /** 是否为重新支付模式 */
   isRetryPayment?: boolean;
+  /** 现有预约ID（重新支付时使用） */
   existingAppointmentId?: number;
 }
 
@@ -21,24 +37,31 @@ export default function PaymentStatusMonitor({
   isRetryPayment = false,
   existingAppointmentId
 }: PaymentStatusMonitorProps) {
+  // 组件状态管理
   const [status, setStatus] = useState<'checking' | 'succeeded' | 'failed' | 'timeout'>('checking');
-  const [countdown, setCountdown] = useState(60); // 60秒倒计时
-  const [currentCheck, setCurrentCheck] = useState(0);
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [countdown, setCountdown] = useState(60); // 监控超时倒计时（60秒）
+  const [currentCheck, setCurrentCheck] = useState(0); // 当前检查次数
+  const [errorMessage, setErrorMessage] = useState<string>(''); // 错误信息
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     let countdownId: NodeJS.Timeout;
 
+    /**
+     * 检查支付状态的核心函数
+     * 每5秒检查一次，最多检查12次（60秒）
+     */
     const checkPaymentStatus = async () => {
       try {
         console.log(`第${currentCheck + 1}次检查支付状态...`);
         
+        // 调用后端API查询Airwallex支付状态
         const response = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
         const statusResponse = await response.json();
         
         console.log("Payment status response:", statusResponse);
         
+        // 支付成功处理
         if (statusResponse.status === 'SUCCEEDED') {
           setStatus('succeeded');
           clearInterval(intervalId);
@@ -46,7 +69,7 @@ export default function PaymentStatusMonitor({
           
           try {
             if (isRetryPayment && existingAppointmentId) {
-              // 更新现有预约的支付状态
+              // 重新支付模式：更新现有预约的支付状态
               console.log("Updating existing appointment payment status:", existingAppointmentId);
               
               const response = await apiRequest("PUT", `/api/appointments/${existingAppointmentId}`, {
@@ -57,20 +80,20 @@ export default function PaymentStatusMonitor({
               const appointment = await response.json();
               console.log("Updated appointment:", appointment);
               
-              // 刷新预约列表缓存
+              // 刷新预约列表缓存，确保UI实时更新
               queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
               
               onSuccess(appointment);
             } else {
-              // 创建新预约
+              // 新预约模式：创建新的预约记录
               console.log("Creating appointment with data:", {
                 therapistId: appointmentData.therapistId,
                 appointmentDate: appointmentData.appointmentDate,
                 consultationType: appointmentData.consultationType,
                 clientNotes: appointmentData.clientNotes,
                 price: Number(appointmentData.price || 0).toFixed(2),
-                status: 'pending',
-                paymentStatus: 'paid',
+                status: 'pending', // 待咨询师确认
+                paymentStatus: 'paid', // 支付已完成
                 paymentIntentId: paymentIntentId
               });
               
@@ -88,7 +111,7 @@ export default function PaymentStatusMonitor({
               const appointment = await response.json();
               console.log("Created appointment:", appointment);
               
-              // 刷新预约列表缓存
+              // 刷新预约列表缓存，确保UI实时更新
               queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
               
               onSuccess(appointment);
@@ -99,23 +122,28 @@ export default function PaymentStatusMonitor({
             setErrorMessage("支付成功但处理预约失败，请联系客服");
             onFailure?.("支付成功但处理预约失败");
           }
-        } else if (statusResponse.status === 'FAILED' || statusResponse.status === 'CANCELLED') {
+        } 
+        // 支付失败处理
+        else if (statusResponse.status === 'FAILED' || statusResponse.status === 'CANCELLED') {
           setStatus('failed');
           setErrorMessage(`支付失败: ${statusResponse.status}`);
           clearInterval(intervalId);
           clearInterval(countdownId);
-          onFailure(`支付失败: ${statusResponse.status}`);
+          onFailure?.(`支付失败: ${statusResponse.status}`);
         }
         
+        // 更新检查次数
         setCurrentCheck(prev => prev + 1);
       } catch (error: any) {
         console.error("检查支付状态时出错:", error);
-        if (currentCheck >= 12) { // 12次检查后仍然失败
+        
+        // 超过最大检查次数则标记为失败
+        if (currentCheck >= 12) {
           setStatus('failed');
           setErrorMessage("检查支付状态失败，请联系客服");
           clearInterval(intervalId);
           clearInterval(countdownId);
-          onFailure("检查支付状态失败");
+          onFailure?.("检查支付状态失败");
         }
       }
     };
@@ -134,7 +162,7 @@ export default function PaymentStatusMonitor({
           setErrorMessage("支付状态检查超时，请刷新页面或联系客服");
           clearInterval(intervalId);
           clearInterval(countdownId);
-          onFailure("支付状态检查超时");
+          onFailure?.("支付状态检查超时");
           return 0;
         }
         return prev - 1;

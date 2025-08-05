@@ -1,3 +1,13 @@
+/**
+ * 心理咨询平台 - 数据库模式定义
+ * 
+ * 包含以下主要数据表：
+ * 1. 用户系统（users, sessions）
+ * 2. 咨询师管理（therapists, therapistCredentials, availability）
+ * 3. 预约系统（appointments, reviews）
+ * 4. 支付集成（airwallexCustomers, therapistEarnings, therapistBeneficiaries, withdrawalRequests）
+ */
+
 import {
   pgTable,
   text,
@@ -15,7 +25,10 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table (mandatory for Replit Auth)
+/**
+ * 会话存储表
+ * 用于存储用户登录会话信息（Replit Auth必需）
+ */
 export const sessions = pgTable(
   "sessions",
   {
@@ -26,14 +39,17 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (mandatory for Replit Auth)
+/**
+ * 用户基础信息表
+ * 存储所有用户（客户和咨询师）的基本信息
+ */
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("client"), // "client" or "therapist"
+  role: varchar("role").notNull().default("client"), // 角色：client（客户）或 therapist（咨询师）
   phone: varchar("phone"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

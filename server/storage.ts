@@ -1,3 +1,14 @@
+/**
+ * 数据存储层接口和实现
+ * 
+ * 提供了完整的数据访问层，包括：
+ * - 用户管理（认证必需）
+ * - 咨询师管理
+ * - 预约系统
+ * - 支付和收益管理
+ * - 评价系统
+ */
+
 import {
   users,
   therapists,
@@ -36,8 +47,12 @@ import {
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, avg, count } from "drizzle-orm";
 
+/**
+ * 存储接口定义
+ * 定义了所有数据访问操作的标准接口
+ */
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // 用户操作（认证系统必需）
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
