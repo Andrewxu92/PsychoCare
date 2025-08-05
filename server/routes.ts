@@ -1481,7 +1481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const transferData = {
               amount: amount.toFixed(2),
               currency: "HKD",
-              destination: {
+              beneficiary: {
                 digital_wallet: {
                   account_name: beneficiary.accountHolderName,
                   id_type: beneficiary.walletId ? "account_number" : "email",
