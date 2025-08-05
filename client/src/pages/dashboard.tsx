@@ -199,6 +199,11 @@ export default function Dashboard() {
     apt.status === 'pending' && apt.paymentStatus === 'paid'
   );
 
+  // 添加待支付的预约过滤
+  const unpaidAppointments = appointments.filter(apt => 
+    apt.status === 'pending' && apt.paymentStatus !== 'paid'
+  );
+
   // 根据过滤器筛选预约
   const getFilteredAppointments = () => {
     switch (appointmentFilter) {
@@ -208,6 +213,8 @@ export default function Dashboard() {
         return appointments.filter(apt => apt.status === 'confirmed');
       case 'completed':
         return appointments.filter(apt => apt.status === 'completed');
+      case 'unpaid':
+        return unpaidAppointments;
       case 'all':
       default:
         return appointments;
@@ -529,6 +536,15 @@ export default function Dashboard() {
                     >
                       已完成 ({appointments.filter(apt => apt.status === 'completed').length})
                     </Button>
+                    {unpaidAppointments.length > 0 && (
+                      <Button
+                        variant={appointmentFilter === 'unpaid' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setAppointmentFilter('unpaid')}
+                      >
+                        待支付 ({unpaidAppointments.length})
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -541,6 +557,7 @@ export default function Dashboard() {
                           {appointmentFilter === 'pending' && '暂无待确认预约'}
                           {appointmentFilter === 'confirmed' && '暂无已确认预约'}
                           {appointmentFilter === 'completed' && '暂无已完成预约'}
+                          {appointmentFilter === 'unpaid' && '暂无待支付预约'}
                         </p>
                       </div>
                     ) : (
@@ -570,6 +587,24 @@ export default function Dashboard() {
                               <Badge className={getStatusColor(appointment.status)}>
                                 {getStatusText(appointment.status, appointment.paymentStatus)}
                               </Badge>
+                              
+                              {/* 来访者重新支付按钮 - 待支付状态 */}
+                              {user?.role === 'client' && appointment.status === 'pending' && appointment.paymentStatus !== 'paid' && (
+                                <div className="mt-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="default"
+                                    onClick={() => {
+                                      // 跳转到支付页面，携带预约ID
+                                      window.location.href = `/payment?appointmentId=${appointment.id}`;
+                                    }}
+                                  >
+                                    完成支付
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* 咨询师确认/拒绝按钮 - 已支付待确认状态 */}
                               {user?.role === 'therapist' && appointment.status === 'pending' && appointment.paymentStatus === 'paid' && (
                                 <div className="flex space-x-2 mt-2">
                                   <Button 

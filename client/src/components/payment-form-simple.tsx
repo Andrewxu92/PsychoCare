@@ -13,10 +13,12 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface PaymentFormProps {
   amount: number;
+  currency?: string;
   appointmentData?: any;
-  onPaymentSuccess: (result?: any) => void;
-  onPaymentFailure?: () => void;
-  isLoading?: boolean;
+  onSuccess: (intentId: string) => void;
+  onError: (error: string) => void;
+  disabled?: boolean;
+  isRetryPayment?: boolean;
 }
 
 declare global {
@@ -27,10 +29,12 @@ declare global {
 
 export default function PaymentForm({
   amount,
+  currency = "HKD",
   appointmentData,
-  onPaymentSuccess,
-  onPaymentFailure,
-  isLoading = false,
+  onSuccess,
+  onError,
+  disabled = false,
+  isRetryPayment = false,
 }: PaymentFormProps) {
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [paymentError, setPaymentError] = useState<string>("");
@@ -80,7 +84,7 @@ export default function PaymentForm({
       // Create payment intent
       const intentRes = await apiRequest("POST", "/api/payments/intent", {
         amount: amount,
-        currency: "HKD",
+        currency: currency,
         customer_id: customer.id,
       });
       const intent = await intentRes.json();
@@ -167,22 +171,18 @@ export default function PaymentForm({
           
           if (statusResponse.status === 'SUCCEEDED') {
             console.log("Payment status verified as SUCCEEDED");
-            onPaymentSuccess(event.detail);
+            onSuccess(paymentIntentId);
           } else {
             console.error("Payment not successful, status:", statusResponse.status);
             setPaymentError(`支付未成功，状态: ${statusResponse.status}`);
             setIsProcessing(false);
-            if (onPaymentFailure) {
-              onPaymentFailure();
-            }
+            onError(`支付未成功，状态: ${statusResponse.status}`);
           }
         } catch (error: any) {
           console.error("Error verifying payment status:", error);
           setPaymentError("支付状态验证失败，请联系客服");
           setIsProcessing(false);
-          if (onPaymentFailure) {
-            onPaymentFailure();
-          }
+          onError("支付状态验证失败，请联系客服");
         }
       });
 
@@ -190,10 +190,7 @@ export default function PaymentForm({
         console.error("Payment error:", event.detail);
         setPaymentError(event.detail.error?.message || "Payment failed");
         setIsProcessing(false);
-        // 调用失败回调
-        if (onPaymentFailure) {
-          onPaymentFailure();
-        }
+        onError(event.detail.error?.message || "Payment failed");
       });
     } catch (error: any) {
       console.error("Failed to create drop-in:", error);
