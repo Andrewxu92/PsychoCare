@@ -1309,6 +1309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+
       // Create withdrawal request with updated status
       const withdrawal = await storage.createWithdrawalRequest({
         therapistId,
