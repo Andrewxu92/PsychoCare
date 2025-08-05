@@ -35,15 +35,27 @@ import {
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 
-// Form schemas - Updated to match database schema
+// Form schemas - Updated to support manual Airwallex wallet entry
 const beneficiaryFormSchema = z.object({
-  accountType: z.string(),
+  accountType: z.string().min(1, "请选择账户类型"),
   bankName: z.string().optional(),
-  accountNumber: z.string().min(1, "账户号码是必填项"),
+  accountNumber: z.string().optional(),
   accountHolderName: z.string().min(1, "账户持有人姓名是必填项"),
-  currency: z.string().default("USD"),
-  airwallexBeneficiaryId: z.string().min(1, "Airwallex受益人ID是必填项"),
+  walletId: z.string().optional(),
+  walletEmail: z.string().email("请输入有效的邮箱地址").optional().or(z.literal("")),
+  currency: z.string().default("HKD"),
+  airwallexBeneficiaryId: z.string().optional(),
   isDefault: z.boolean().default(false)
+}).refine((data) => {
+  // Validate based on account type
+  if (data.accountType === "airwallex") {
+    return data.walletId || data.walletEmail;
+  } else {
+    return data.accountNumber;
+  }
+}, {
+  message: "请填写相应的账户信息",
+  path: ["accountNumber"]
 });
 
 const withdrawalFormSchema = z.object({
@@ -475,6 +487,7 @@ export default function TherapistWallet() {
                                   <SelectItem value="bank">银行账户</SelectItem>
                                   <SelectItem value="alipay">支付宝</SelectItem>
                                   <SelectItem value="wechat_pay">微信支付</SelectItem>
+                                  <SelectItem value="airwallex">Airwallex钱包</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -498,33 +511,76 @@ export default function TherapistWallet() {
                           />
                         )}
 
-                        <FormField
-                          control={beneficiaryForm.control}
-                          name="accountNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>账户号码</FormLabel>
-                              <FormControl>
-                                <Input placeholder="请输入账户号码" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {beneficiaryForm.watch("accountType") === "airwallex" && (
+                          <div className="space-y-4">
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="walletId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Airwallex钱包ID</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="请输入您的Airwallex钱包ID" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="walletEmail"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Airwallex注册邮箱</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="请输入Airwallex注册邮箱" type="email" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
 
-                        <FormField
-                          control={beneficiaryForm.control}
-                          name="accountHolderName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>账户持有人姓名</FormLabel>
-                              <FormControl>
-                                <Input placeholder="请输入账户持有人姓名" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {beneficiaryForm.watch("accountType") !== "airwallex" && (
+                          <>
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="accountNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    {beneficiaryForm.watch("accountType") === "bank" ? "账户号码" : 
+                                     beneficiaryForm.watch("accountType") === "alipay" ? "支付宝账号" : 
+                                     "微信号"}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input placeholder={
+                                      beneficiaryForm.watch("accountType") === "bank" ? "请输入银行账户号码" : 
+                                      beneficiaryForm.watch("accountType") === "alipay" ? "请输入支付宝账号" : 
+                                      "请输入微信号"
+                                    } {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="accountHolderName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>账户持有人姓名</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="请输入账户持有人姓名" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
 
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
@@ -555,6 +611,8 @@ export default function TherapistWallet() {
                           <div className="flex-shrink-0">
                             {beneficiary.accountType === "bank" ? (
                               <Building2 className="h-8 w-8 text-blue-600" />
+                            ) : beneficiary.accountType === "airwallex" ? (
+                              <Wallet className="h-8 w-8 text-purple-600" />
                             ) : (
                               <CreditCard className="h-8 w-8 text-green-600" />
                             )}
@@ -572,10 +630,13 @@ export default function TherapistWallet() {
                             </div>
                             <div className="flex items-center space-x-2">
                               <p className="text-sm text-gray-600">
-                                {showAccountNumbers[beneficiary.id] 
-                                  ? beneficiary.accountNumber 
-                                  : maskAccountNumber(beneficiary.accountNumber)
-                                }
+                                {beneficiary.accountType === "airwallex" ? (
+                                  beneficiary.walletEmail || beneficiary.walletId || "Airwallex钱包"
+                                ) : (
+                                  showAccountNumbers[beneficiary.id] 
+                                    ? beneficiary.accountNumber 
+                                    : maskAccountNumber(beneficiary.accountNumber)
+                                )}
                               </p>
                               <Button
                                 variant="ghost"

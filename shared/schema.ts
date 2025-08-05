@@ -159,12 +159,14 @@ export const therapistEarnings = pgTable("therapist_earnings", {
 export const therapistBeneficiaries = pgTable("therapist_beneficiaries", {
   id: serial("id").primaryKey(),
   therapistId: integer("therapist_id").notNull().references(() => therapists.id),
-  airwallexBeneficiaryId: varchar("airwallex_beneficiary_id").notNull(),
-  accountType: varchar("account_type").notNull(), // bank, card, etc.
+  airwallexBeneficiaryId: varchar("airwallex_beneficiary_id"), // Optional, for Airwallex-created beneficiaries
+  accountType: varchar("account_type").notNull(), // "bank", "alipay", "wechat_pay", "airwallex", etc.
   accountHolderName: varchar("account_holder_name").notNull(),
-  accountNumber: varchar("account_number").notNull(), // masked
-  bankName: varchar("bank_name"),
-  currency: varchar("currency").notNull().default("CNY"),
+  accountNumber: varchar("account_number"), // Optional for manual entries
+  bankName: varchar("bank_name"), // Optional for bank accounts
+  walletId: varchar("wallet_id"), // For Airwallex wallet
+  walletEmail: varchar("wallet_email"), // For Airwallex wallet  
+  currency: varchar("currency").notNull().default("HKD"),
   isDefault: boolean("is_default").default(false),
   isActive: boolean("is_active").default(true),
   airwallexRawData: text("airwallex_raw_data"), // Store complete Airwallex SDK result
