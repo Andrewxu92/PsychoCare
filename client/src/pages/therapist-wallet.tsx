@@ -42,20 +42,36 @@ const beneficiaryFormSchema = z.object({
   accountNumber: z.string().optional(),
   accountHolderName: z.string().min(1, "账户持有人姓名是必填项"),
   walletId: z.string().optional(),
-  walletEmail: z.string().email("请输入有效的邮箱地址").optional().or(z.literal("")),
+  walletEmail: z.string().optional(),
   currency: z.string().default("HKD"),
   airwallexBeneficiaryId: z.string().optional(),
   isDefault: z.boolean().default(false)
-}).refine((data) => {
+}).superRefine((data, ctx) => {
   // Validate based on account type
   if (data.accountType === "airwallex") {
-    return data.walletId || data.walletEmail;
+    if (!data.walletId && !data.walletEmail) {
+      ctx.addIssue({
+        code: "custom",
+        message: "请填写钱包ID或注册邮箱",
+        path: ["walletId"]
+      });
+    }
+    if (data.walletEmail && !z.string().email().safeParse(data.walletEmail).success) {
+      ctx.addIssue({
+        code: "custom", 
+        message: "请输入有效的邮箱地址",
+        path: ["walletEmail"]
+      });
+    }
   } else {
-    return data.accountNumber;
+    if (!data.accountNumber) {
+      ctx.addIssue({
+        code: "custom",
+        message: "请填写账户号码",
+        path: ["accountNumber"]
+      });
+    }
   }
-}, {
-  message: "请填写相应的账户信息",
-  path: ["accountNumber"]
 });
 
 const withdrawalFormSchema = z.object({
@@ -209,11 +225,21 @@ export default function TherapistWallet() {
   });
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
-    console.log('onBeneficiarySubmit', data);
+    console.log('onBeneficiarySubmit called with data:', data);
+    console.log('Form errors:', beneficiaryForm.formState.errors);
     console.log('therapistId in onBeneficiarySubmit:', therapistId);
-    console.log('createBeneficiaryMutation:', createBeneficiaryMutation);
+    
+    if (!therapistId) {
+      toast({
+        title: "错误",
+        description: "无法获取治疗师ID",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     createBeneficiaryMutation.mutate(data);
-    console.log('mutate called');
+    console.log('Mutation called with data:', data);
   };
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
@@ -543,44 +569,42 @@ export default function TherapistWallet() {
                         )}
 
                         {beneficiaryForm.watch("accountType") !== "airwallex" && (
-                          <>
-                            <FormField
-                              control={beneficiaryForm.control}
-                              name="accountNumber"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>
-                                    {beneficiaryForm.watch("accountType") === "bank" ? "账户号码" : 
-                                     beneficiaryForm.watch("accountType") === "alipay" ? "支付宝账号" : 
-                                     "微信号"}
-                                  </FormLabel>
-                                  <FormControl>
-                                    <Input placeholder={
-                                      beneficiaryForm.watch("accountType") === "bank" ? "请输入银行账户号码" : 
-                                      beneficiaryForm.watch("accountType") === "alipay" ? "请输入支付宝账号" : 
-                                      "请输入微信号"
-                                    } {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-
-                            <FormField
-                              control={beneficiaryForm.control}
-                              name="accountHolderName"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>账户持有人姓名</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="请输入账户持有人姓名" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </>
+                          <FormField
+                            control={beneficiaryForm.control}
+                            name="accountNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {beneficiaryForm.watch("accountType") === "bank" ? "账户号码" : 
+                                   beneficiaryForm.watch("accountType") === "alipay" ? "支付宝账号" : 
+                                   "微信号"}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input placeholder={
+                                    beneficiaryForm.watch("accountType") === "bank" ? "请输入银行账户号码" : 
+                                    beneficiaryForm.watch("accountType") === "alipay" ? "请输入支付宝账号" : 
+                                    "请输入微信号"
+                                  } {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
+
+                        <FormField
+                          control={beneficiaryForm.control}
+                          name="accountHolderName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>账户持有人姓名</FormLabel>
+                              <FormControl>
+                                <Input placeholder="请输入账户持有人姓名" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
