@@ -8,14 +8,18 @@ interface PaymentStatusMonitorProps {
   paymentIntentId: string;
   appointmentData: any;
   onSuccess: (appointment: any) => void;
-  onFailure: (error: string) => void;
+  onFailure?: (error: string) => void;
+  isRetryPayment?: boolean;
+  existingAppointmentId?: number;
 }
 
 export default function PaymentStatusMonitor({
   paymentIntentId,
   appointmentData,
   onSuccess,
-  onFailure
+  onFailure,
+  isRetryPayment = false,
+  existingAppointmentId
 }: PaymentStatusMonitorProps) {
   const [status, setStatus] = useState<'checking' | 'succeeded' | 'failed' | 'timeout'>('checking');
   const [countdown, setCountdown] = useState(60); // 60秒倒计时
@@ -40,39 +44,54 @@ export default function PaymentStatusMonitor({
           clearInterval(intervalId);
           clearInterval(countdownId);
           
-          // 创建预约
           try {
-            console.log("Creating appointment with data:", {
-              therapistId: appointmentData.therapistId,
-              appointmentDate: appointmentData.appointmentDate,
-              consultationType: appointmentData.consultationType,
-              clientNotes: appointmentData.clientNotes,
-              price: Number(appointmentData.price || 0).toFixed(2),
-              status: 'confirmed',
-              paymentStatus: 'paid',
-              paymentIntentId: paymentIntentId
-            });
-            
-            const response = await apiRequest("POST", "/api/appointments", {
-              therapistId: appointmentData.therapistId,
-              appointmentDate: appointmentData.appointmentDate,
-              consultationType: appointmentData.consultationType,
-              clientNotes: appointmentData.clientNotes,
-              price: Number(appointmentData.price || 0).toFixed(2),
-              status: 'pending', // 支付成功后状态为pending，等待咨询师确认
-              paymentStatus: 'paid',
-              paymentIntentId: paymentIntentId
-            });
-            
-            const appointment = await response.json();
-            console.log("Created appointment:", appointment);
-            
-            onSuccess(appointment);
+            if (isRetryPayment && existingAppointmentId) {
+              // 更新现有预约的支付状态
+              console.log("Updating existing appointment payment status:", existingAppointmentId);
+              
+              const response = await apiRequest("PUT", `/api/appointments/${existingAppointmentId}`, {
+                paymentStatus: 'paid',
+                paymentIntentId: paymentIntentId
+              });
+              
+              const appointment = await response.json();
+              console.log("Updated appointment:", appointment);
+              
+              onSuccess(appointment);
+            } else {
+              // 创建新预约
+              console.log("Creating appointment with data:", {
+                therapistId: appointmentData.therapistId,
+                appointmentDate: appointmentData.appointmentDate,
+                consultationType: appointmentData.consultationType,
+                clientNotes: appointmentData.clientNotes,
+                price: Number(appointmentData.price || 0).toFixed(2),
+                status: 'pending',
+                paymentStatus: 'paid',
+                paymentIntentId: paymentIntentId
+              });
+              
+              const response = await apiRequest("POST", "/api/appointments", {
+                therapistId: appointmentData.therapistId,
+                appointmentDate: appointmentData.appointmentDate,
+                consultationType: appointmentData.consultationType,
+                clientNotes: appointmentData.clientNotes,
+                price: Number(appointmentData.price || 0).toFixed(2),
+                status: 'pending', // 支付成功后状态为pending，等待咨询师确认
+                paymentStatus: 'paid',
+                paymentIntentId: paymentIntentId
+              });
+              
+              const appointment = await response.json();
+              console.log("Created appointment:", appointment);
+              
+              onSuccess(appointment);
+            }
           } catch (confirmError: any) {
-            console.error("创建预约失败:", confirmError);
+            console.error("处理预约失败:", confirmError);
             setStatus('failed');
-            setErrorMessage("支付成功但创建预约失败，请联系客服");
-            onFailure("支付成功但创建预约失败");
+            setErrorMessage("支付成功但处理预约失败，请联系客服");
+            onFailure?.("支付成功但处理预约失败");
           }
         } else if (statusResponse.status === 'FAILED' || statusResponse.status === 'CANCELLED') {
           setStatus('failed');
