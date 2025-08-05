@@ -1374,7 +1374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Update withdrawal status to completed
           await storage.updateWithdrawalByTransferId(transferId, {
             status: 'completed',
-            processedAt: new Date()
+            completedAt: new Date()
           });
           console.log(`Transfer ${transferId} completed successfully!`);
           return;
