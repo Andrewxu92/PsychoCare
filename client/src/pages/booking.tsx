@@ -206,6 +206,10 @@ export default function Booking() {
   const handleMonitoringSuccess = (appointment: any) => {
     setFinalAppointment(appointment);
     setCurrentStep('confirmation');
+    
+    // 刷新预约列表缓存
+    queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+    
     toast({
       title: "预约成功",
       description: "您的咨询预约已成功创建！",

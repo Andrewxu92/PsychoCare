@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface PaymentStatusMonitorProps {
   paymentIntentId: string;
@@ -57,6 +57,9 @@ export default function PaymentStatusMonitor({
               const appointment = await response.json();
               console.log("Updated appointment:", appointment);
               
+              // 刷新预约列表缓存
+              queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+              
               onSuccess(appointment);
             } else {
               // 创建新预约
@@ -84,6 +87,9 @@ export default function PaymentStatusMonitor({
               
               const appointment = await response.json();
               console.log("Created appointment:", appointment);
+              
+              // 刷新预约列表缓存
+              queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
               
               onSuccess(appointment);
             }
