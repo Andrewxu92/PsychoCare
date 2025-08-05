@@ -1262,6 +1262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Create transfer request to Airwallex using the reusable function
           const transferData = {
+            amount: amount.toFixed(2), // Add the required amount field at top level
             beneficiary: {
               digital_wallet: {
                 account_name: beneficiary.accountHolderName,
@@ -1280,8 +1281,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             reference: `WD-${Date.now()}`,
             request_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             source_currency: "HKD",
-            transfer_amount: amount.toFixed(2),
-            transfer_currency: "HKD", 
             transfer_method: "LOCAL"
           };
 
