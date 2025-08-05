@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import Navigation from "@/components/navigation";
 import PaymentForm from "@/components/payment-form-simple";
 import PaymentStatusMonitor from "@/components/payment-status-monitor";
@@ -255,6 +256,9 @@ export default function Payment() {
                 isRetryPayment={true}
                 existingAppointmentId={appointment.id}
                 onSuccess={() => {
+                  // 刷新预约列表缓存
+                  queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+                  
                   toast({
                     title: "支付成功",
                     description: "您的预约已确认，咨询师将审核您的预约请求。",
