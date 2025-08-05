@@ -805,7 +805,9 @@ export default function TherapistWallet() {
                                         <div>
                                           <div className="font-medium">{beneficiary.accountHolderName}</div>
                                           <div className="text-sm text-gray-500">
-                                            {maskAccountNumber(beneficiary.accountNumber)}
+                                            {beneficiary.accountType === 'airwallex' 
+                                              ? (beneficiary.walletEmail || beneficiary.walletId || 'Airwallex钱包')
+                                              : maskAccountNumber(beneficiary.accountNumber)}
                                           </div>
                                         </div>
                                       </div>
@@ -932,14 +934,29 @@ export default function TherapistWallet() {
                     <label className="text-sm font-medium text-gray-700">账户类型</label>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountType}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">账户号码</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">银行名称</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
-                  </div>
+                  {selectedBeneficiary.accountType === 'airwallex' ? (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Airwallex钱包ID</label>
+                        <p className="mt-1 text-sm text-gray-900 font-mono">{selectedBeneficiary.walletId || '未提供'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Airwallex注册邮箱</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.walletEmail || '未提供'}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">账户号码</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">银行名称</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-gray-700">货币</label>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.currency}</p>
