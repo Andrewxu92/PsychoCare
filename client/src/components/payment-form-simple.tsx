@@ -207,7 +207,7 @@ export default function PaymentForm({
     setPaymentError("");
   };
 
-  if (isLoading) {
+  if (disabled) {
     return (
       <Card className="max-w-2xl mx-auto">
         <CardContent className="py-12">
