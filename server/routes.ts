@@ -1216,13 +1216,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const therapistId = parseInt(req.params.therapistId);
       const userId = req.user.claims.sub;
       
+      console.log('=== WITHDRAWAL REQUEST RECEIVED ===');
+      console.log('TherapistId from params:', therapistId);
+      console.log('UserId from auth:', userId);
+      console.log('Request body:', req.body);
+      
       // Verify therapist ownership
       const therapist = await storage.getTherapistByUserId(userId);
       if (!therapist || therapist.id !== therapistId) {
+        console.log('Access denied - therapist mismatch:', { therapist, therapistId });
         return res.status(403).json({ message: "Access denied" });
       }
 
       const { amount, beneficiaryId } = req.body;
+      console.log('Extracted values:', { amount, beneficiaryId });
 
       // Validate amount
       if (!amount || amount <= 0) {
@@ -1251,6 +1258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
       if (beneficiary.accountType === 'airwallex') {
+        console.log('Processing Airwallex withdrawal for beneficiary:', beneficiary);
         try {
           // Create transfer request to Airwallex using the reusable function
           const transferData = {
@@ -1281,7 +1289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             method: 'POST',
             body: JSON.stringify(transferData)
           });
-
+           console.log('Airwallex transfer request body:', JSON.stringify(transferData));
           if (transferResponse.ok) {
             const transferResult = await transferResponse.json();
             airwallexTransferId = transferResult.id;
