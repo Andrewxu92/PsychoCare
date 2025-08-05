@@ -153,6 +153,9 @@ Changelog:
 - August 05, 2025. Successfully implemented Airwallex Transfers API integration for real withdrawal processing with proper currency handling
 - August 05, 2025. Optimized code by properly reusing makeAirwallexRequest function instead of duplicating API logic
 - August 05, 2025. Fixed form accessibility issues by replacing improper label elements with div elements for display-only content
+- August 05, 2025. Implemented complete Airwallex transfer status polling system with 30-second time limits for both backend and frontend
+- August 05, 2025. Added automatic status tracking: backend polls every 3s for 30s, frontend auto-refreshes when processing withdrawals detected
+- August 05, 2025. Fixed infinite frontend polling issue by adding time and attempt limits matching backend polling behavior
 ```
 
 ## User Preferences

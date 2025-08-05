@@ -136,14 +136,30 @@ export default function TherapistWallet() {
     enabled: !!therapistId
   });
 
-  // Auto-refresh for processing withdrawals
+  // Auto-refresh for processing withdrawals (limited to 30 seconds)
   useEffect(() => {
     if (!withdrawals) return;
     
     const hasProcessingWithdrawals = withdrawals.some((w: any) => w.status === 'processing');
     
     if (hasProcessingWithdrawals) {
+      const startTime = Date.now();
+      const MAX_POLLING_TIME = 30000; // 30 seconds
+      let attemptCount = 0;
+      const MAX_ATTEMPTS = 10;
+      
       const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        attemptCount++;
+        
+        // Stop polling after 30 seconds or 10 attempts
+        if (elapsed >= MAX_POLLING_TIME || attemptCount >= MAX_ATTEMPTS) {
+          console.log(`Frontend polling stopped after ${Math.round(elapsed/1000)}s (${attemptCount} attempts)`);
+          clearInterval(interval);
+          return;
+        }
+        
+        console.log(`Frontend polling attempt ${attemptCount}/${MAX_ATTEMPTS} (${Math.round(elapsed/1000)}s elapsed)`);
         refetchWithdrawals();
       }, 3000); // Refresh every 3 seconds
       
