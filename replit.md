@@ -145,6 +145,11 @@ Changelog:
 - August 04, 2025. Fixed critical payment status verification bug: now correctly parses JSON response instead of checking HTTP status
 - August 04, 2025. Resolved booking confirmation page display issues (Invalid Date and NaN amounts) with proper data validation
 - August 04, 2025. Fixed DOM nesting validation warnings by restructuring Badge component usage in confirmation page
+- August 05, 2025. Successfully implemented Airwallex wallet as manual beneficiary account addition method
+- August 05, 2025. Added database schema support for walletId and walletEmail fields in therapist_beneficiaries table
+- August 05, 2025. Enhanced therapist wallet interface with dedicated Airwallex wallet form fields and validation
+- August 05, 2025. Fixed account display logic to properly show wallet information instead of traditional account numbers for Airwallex accounts
+- August 05, 2025. Completed comprehensive manual account addition system supporting bank, Alipay, WeChat, and Airwallex wallet options
 ```
 
 ## User Preferences
