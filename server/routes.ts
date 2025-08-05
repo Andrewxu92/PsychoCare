@@ -1266,6 +1266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               type: "DIGITAL_WALLET"
             },
+            currency: "HKD", // Add required currency field at top level
             metadata: {
               therapist_id: therapistId.toString(),
               withdrawal_id: Date.now().toString()
