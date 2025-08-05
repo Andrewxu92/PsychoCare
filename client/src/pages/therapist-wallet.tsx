@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 // Form schemas - Updated to support manual Airwallex wallet entry
 const beneficiaryFormSchema = z.object({
@@ -130,10 +131,25 @@ export default function TherapistWallet() {
   });
 
   // Withdrawals query
-  const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery<any[]>({
+  const { data: withdrawals, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/withdrawals`],
     enabled: !!therapistId
   });
+
+  // Auto-refresh for processing withdrawals
+  useEffect(() => {
+    if (!withdrawals) return;
+    
+    const hasProcessingWithdrawals = withdrawals.some((w: any) => w.status === 'processing');
+    
+    if (hasProcessingWithdrawals) {
+      const interval = setInterval(() => {
+        refetchWithdrawals();
+      }, 3000); // Refresh every 3 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [withdrawals, refetchWithdrawals]);
 
   // Forms
   const beneficiaryForm = useForm<BeneficiaryFormData>({
