@@ -1252,16 +1252,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
       if (beneficiary.accountType === 'airwallex') {
         try {
-          // Get Airwallex access token
-          const accessToken = await getAirwallexAccessToken();
-
-          // Create transfer request to Airwallex
+          // Create transfer request to Airwallex using the reusable function
           const transferData = {
             beneficiary: {
               digital_wallet: {
                 account_name: beneficiary.accountHolderName,
-                id_type : "account_number",
-                id_value : beneficiary.walletId,
+                id_type: beneficiary.walletId ? "account_number" : "email", 
+                id_value: beneficiary.walletId || beneficiary.walletEmail,
                 provider: "AIRWALLEX"
               },
               type: "DIGITAL_WALLET"
@@ -1285,15 +1282,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body: transferData
           });
 
-         
-            airwallexTransferId = transferResult.id;
-            withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
-            console.log('Airwallex transfer created:', transferResult);
-          } else {
-            const error = await transferResponse.text();
-            console.error('Airwallex transfer failed:', error);
-            withdrawalStatus = "failed";
-          }
+          airwallexTransferId = transferResult.id;
+          withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
+          console.log('Airwallex transfer created:', transferResult);
         } catch (error) {
           console.error('Error processing Airwallex transfer:', error);
           withdrawalStatus = "failed";
