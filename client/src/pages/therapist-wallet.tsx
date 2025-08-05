@@ -930,46 +930,46 @@ export default function TherapistWallet() {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">账户持有人</label>
+                    <div className="text-sm font-medium text-gray-700">账户持有人</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountHolderName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">账户类型</label>
+                    <div className="text-sm font-medium text-gray-700">账户类型</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountType}</p>
                   </div>
                   {selectedBeneficiary.accountType === 'airwallex' ? (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700">Airwallex钱包ID</label>
+                        <div className="text-sm font-medium text-gray-700">Airwallex钱包ID</div>
                         <p className="mt-1 text-sm text-gray-900 font-mono">{selectedBeneficiary.walletId || '未提供'}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700">Airwallex注册邮箱</label>
+                        <div className="text-sm font-medium text-gray-700">Airwallex注册邮箱</div>
                         <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.walletEmail || '未提供'}</p>
                       </div>
                     </>
                   ) : (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700">账户号码</label>
+                        <div className="text-sm font-medium text-gray-700">账户号码</div>
                         <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700">银行名称</label>
+                        <div className="text-sm font-medium text-gray-700">银行名称</div>
                         <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
                       </div>
                     </>
                   )}
                   <div>
-                    <label className="text-sm font-medium text-gray-700">货币</label>
+                    <div className="text-sm font-medium text-gray-700">货币</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.currency}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Airwallex ID</label>
+                    <div className="text-sm font-medium text-gray-700">Airwallex ID</div>
                     <p className="mt-1 text-sm text-gray-900 font-mono text-xs">{selectedBeneficiary.airwallexBeneficiaryId}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">状态</label>
+                    <div className="text-sm font-medium text-gray-700">状态</div>
                     <div className="mt-1">
                       {selectedBeneficiary.isActive ? (
                         <Badge variant="default" className="bg-green-100 text-green-800">
@@ -985,7 +985,7 @@ export default function TherapistWallet() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">创建时间</label>
+                    <div className="text-sm font-medium text-gray-700">创建时间</div>
                     <p className="mt-1 text-sm text-gray-900">
                       {selectedBeneficiary.createdAt 
                         ? format(new Date(selectedBeneficiary.createdAt), "yyyy-MM-dd HH:mm")
