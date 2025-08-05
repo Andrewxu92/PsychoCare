@@ -1252,10 +1252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
       if (beneficiary.accountType === 'airwallex') {
         try {
-          // Get Airwallex access token
-          const accessToken = await getAirwallexAccessToken();
-
-          // Create transfer request to Airwallex
+          // Create transfer request to Airwallex using the reusable function
           const transferData = {
             beneficiary: {
               digital_wallet: {
@@ -1280,27 +1277,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             transfer_method: "LOCAL"
           };
 
-          const transferResponse = await fetch('https://api-demo.airwallex.com/api/v1/transfers/create', {
+          const transferResult = await makeAirwallexRequest('/api/v1/transfers/create', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-              'x-client-id': process.env.AIRWALLEX_CLIENT_ID!,
-              'x-api-key': process.env.AIRWALLEX_API_KEY!
-            },
-            body: JSON.stringify(transferData)
+            body: transferData
           });
 
-          if (transferResponse.ok) {
-            const transferResult = await transferResponse.json();
-            airwallexTransferId = transferResult.id;
-            withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
-            console.log('Airwallex transfer created:', transferResult);
-          } else {
-            const error = await transferResponse.text();
-            console.error('Airwallex transfer failed:', error);
-            withdrawalStatus = "failed";
-          }
+          airwallexTransferId = transferResult.id;
+          withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
+          console.log('Airwallex transfer created:', transferResult);
         } catch (error) {
           console.error('Error processing Airwallex transfer:', error);
           withdrawalStatus = "failed";
