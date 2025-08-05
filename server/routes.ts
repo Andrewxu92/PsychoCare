@@ -1298,6 +1298,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
           console.log('Airwallex transfer created successfully with ID:', airwallexTransferId);
+          
+          // Start polling for transfer status
+          if (airwallexTransferId) {
+            pollTransferStatus(airwallexTransferId);
+          }
         } catch (error) {
           console.error('Error processing Airwallex transfer:', error);
           withdrawalStatus = "failed";
@@ -1343,6 +1348,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "提现申请失败" });
     }
   });
+
+  // Function to poll transfer status
+  async function pollTransferStatus(transferId: string, attempts: number = 0): Promise<void> {
+    const MAX_ATTEMPTS = 10; // 10 attempts * 3 seconds = 30 seconds
+    
+    if (attempts >= MAX_ATTEMPTS) {
+      console.log(`Polling stopped for transfer ${transferId} after ${MAX_ATTEMPTS} attempts`);
+      return;
+    }
+
+    try {
+      console.log(`Polling transfer status (attempt ${attempts + 1}/${MAX_ATTEMPTS}): ${transferId}`);
+      
+      const statusResponse = await makeAirwallexRequest(`/api/v1/transfers/${transferId}`, {
+        method: 'GET'
+      });
+
+      if (statusResponse.ok) {
+        const transferData = await statusResponse.json();
+        console.log(`Transfer ${transferId} status: ${transferData.status}`);
+        
+        if (transferData.status === 'PAID') {
+          // Update withdrawal status to completed
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'completed',
+            processedAt: new Date()
+          });
+          console.log(`Transfer ${transferId} completed successfully!`);
+          return;
+        } else if (transferData.status === 'FAILED' || transferData.status === 'CANCELLED') {
+          // Update withdrawal status to failed
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'failed',
+            failureReason: `Transfer ${transferData.status.toLowerCase()}`
+          });
+          console.log(`Transfer ${transferId} failed with status: ${transferData.status}`);
+          return;
+        }
+      } else {
+        console.error(`Failed to check transfer status: ${statusResponse.status}`);
+      }
+    } catch (error) {
+      console.error(`Error polling transfer status for ${transferId}:`, error);
+    }
+
+    // Schedule next poll in 3 seconds
+    setTimeout(() => {
+      pollTransferStatus(transferId, attempts + 1);
+    }, 3000);
+  }
 
   // Demo API for testing - add sample earnings
   app.post('/api/demo/add-earnings', customAuth, async (req: any, res) => {

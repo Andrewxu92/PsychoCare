@@ -127,6 +127,7 @@ export interface IStorage {
   getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]>;
   createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
   updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest>;
+  updateWithdrawalByTransferId(transferId: string, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -599,6 +600,14 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(withdrawalRequests)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(withdrawalRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  async updateWithdrawalByTransferId(transferId: string, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest | undefined> {
+    const [result] = await db.update(withdrawalRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(withdrawalRequests.airwallexTransferId, transferId))
       .returning();
     return result;
   }
