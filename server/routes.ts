@@ -1262,8 +1262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Create transfer request to Airwallex using the reusable function
           const transferData = {
-            amount: amount.toFixed(2), // Add the required amount field at top level
-            beneficiary: {
+            amount: amount.toFixed(2),
+            currency: "HKD",
+            destination: {
               digital_wallet: {
                 account_name: beneficiary.accountHolderName,
                 id_type: beneficiary.walletId ? "account_number" : "email", 
@@ -1272,7 +1273,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               type: "DIGITAL_WALLET"
             },
-            currency: "HKD", // Add required currency field at top level
             metadata: {
               therapist_id: therapistId.toString(),
               withdrawal_id: Date.now().toString()
