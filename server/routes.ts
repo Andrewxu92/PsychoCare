@@ -1479,23 +1479,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Create transfer request to Airwallex using the reusable function
             const transferData = {
+              request_id: `reqTransfer_${Date.now()}`,
               source_currency: "HKD",
               transfer_currency: "HKD",
               transfer_method: "LOCAL",
-              amount: amount.toFixed(2),
-              transfer_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+              transfer_amount: amount.toString(),
+              reason: "心理咨询师提现",
               reference: `WD-${Date.now()}`,
               beneficiary: {
                 type: "DIGITAL_WALLET",
-                entity_type: "PERSONAL",
-                first_name: beneficiary.accountHolderName.split(' ')[0] || beneficiary.accountHolderName,
-                last_name: beneficiary.accountHolderName.split(' ').slice(1).join(' ') || "",
                 digital_wallet: {
-                  type: "airwallex_pay",
+                  provider: "AIRWALLEX",
                   account_name: beneficiary.accountHolderName,
-                  account_number: beneficiary.walletId || beneficiary.walletEmail
-                }
-              }
+                  id_type: "account_number",
+                  id_value: beneficiary.walletId,
+                },
+              },
             };
 
             const transferResponse = await makeAirwallexRequest(
