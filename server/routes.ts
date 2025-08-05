@@ -1048,33 +1048,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Accept complete Airwallex SDK raw result
-      const airwallexRawData = req.body;
-      console.log('Received Airwallex raw data:', JSON.stringify(airwallexRawData, null, 2));
-      
-      // Extract beneficiary information from Airwallex data
-      const beneficiary = airwallexRawData.values?.beneficiary;
-      const bankDetails = beneficiary?.bank_details;
-      
-      if (!beneficiary || !bankDetails) {
-        return res.status(400).json({ message: "Invalid Airwallex beneficiary data" });
+      // Check if this is Airwallex SDK data or manual form data
+      if (req.body.values?.beneficiary) {
+        // This is Airwallex SDK raw result
+        const airwallexRawData = req.body;
+        console.log('Received Airwallex raw data:', JSON.stringify(airwallexRawData, null, 2));
+        
+        // Extract beneficiary information from Airwallex data
+        const beneficiary = airwallexRawData.values?.beneficiary;
+        const bankDetails = beneficiary?.bank_details;
+        
+        if (!beneficiary || !bankDetails) {
+          return res.status(400).json({ message: "Invalid Airwallex beneficiary data" });
+        }
+
+        const beneficiaryData = insertTherapistBeneficiarySchema.parse({
+          therapistId,
+          accountType: 'bank',
+          bankName: bankDetails.bank_name || '',
+          accountNumber: bankDetails.account_number || '',
+          accountHolderName: bankDetails.account_name || '',
+          currency: bankDetails.account_currency || 'USD',
+          airwallexBeneficiaryId: beneficiary.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          isDefault: false,
+          // Store complete Airwallex data as JSON for future reference
+          airwallexRawData: JSON.stringify(airwallexRawData)
+        });
+
+        const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
+        res.json(createdBeneficiary);
+      } else {
+        // This is manual form data
+        const { accountType, accountHolderName, accountNumber, bankName, walletId, walletEmail, currency = "HKD" } = req.body;
+        
+        // Validate required fields based on account type
+        if (!accountType || !accountHolderName) {
+          return res.status(400).json({ message: "缺少必填字段" });
+        }
+
+        let beneficiaryData: any = {
+          therapistId,
+          accountType,
+          accountHolderName,
+          currency,
+          isDefault: false,
+        };
+
+        // Add type-specific fields
+        if (accountType === "airwallex") {
+          if (!walletId && !walletEmail) {
+            return res.status(400).json({ message: "Airwallex钱包需要提供钱包ID或邮箱" });
+          }
+          beneficiaryData.walletId = walletId;
+          beneficiaryData.walletEmail = walletEmail;
+        } else {
+          if (!accountNumber) {
+            return res.status(400).json({ message: "账户号码为必填项" });
+          }
+          beneficiaryData.accountNumber = accountNumber;
+          if (accountType === "bank" && bankName) {
+            beneficiaryData.bankName = bankName;
+          }
+        }
+
+        const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
+        res.json(createdBeneficiary);
       }
-
-      const beneficiaryData = insertTherapistBeneficiarySchema.parse({
-        therapistId,
-        accountType: 'bank',
-        bankName: bankDetails.bank_name || '',
-        accountNumber: bankDetails.account_number || '',
-        accountHolderName: bankDetails.account_name || '',
-        currency: bankDetails.account_currency || 'USD',
-        airwallexBeneficiaryId: beneficiary.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        isDefault: false,
-        // Store complete Airwallex data as JSON for future reference
-        airwallexRawData: JSON.stringify(airwallexRawData)
-      });
-
-      const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
-      res.json(createdBeneficiary);
     } catch (error) {
       console.error("Error creating beneficiary:", error);
       res.status(500).json({ message: "Failed to create beneficiary" });
