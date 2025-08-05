@@ -1,3 +1,15 @@
+/**
+ * 心理咨询平台 - 后端路由配置
+ * 
+ * 主要功能模块：
+ * 1. 用户认证（Demo登录系统 + Replit OAuth）
+ * 2. 咨询师管理（注册、认证、钱包）
+ * 3. 预约系统（创建、确认、支付）
+ * 4. 支付集成（Airwallex支付网关）
+ * 5. 收入管理（咨询师收益、提现）
+ * 6. 评价系统（客户反馈）
+ */
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -5,16 +17,30 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { findDemoUser, validatePassword, validateVerificationCode } from "./demo-users";
 import { makeAirwallexRequest } from "./airwallex-config";
 import { z } from "zod";
-import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema, insertTherapistEarningsSchema, insertTherapistBeneficiarySchema, insertWithdrawalRequestSchema } from "@shared/schema";
+import { 
+  insertTherapistSchema, 
+  insertAppointmentSchema, 
+  insertReviewSchema, 
+  insertAvailabilitySchema, 
+  insertTherapistCredentialSchema, 
+  insertTherapistEarningsSchema, 
+  insertTherapistBeneficiarySchema, 
+  insertWithdrawalRequestSchema 
+} from "@shared/schema";
 import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // 初始化认证中间件
   await setupAuth(app);
 
-  // Custom authentication middleware that supports both OAuth and demo login
+  /**
+   * 自定义认证中间件
+   * 支持两种认证方式：
+   * 1. Demo登录（基于session的简单认证）
+   * 2. Replit OAuth（生产环境认证）
+   */
   const customAuth = async (req: any, res: any, next: any) => {
-    // Check for demo login session first
+    // 优先检查Demo登录会话
     if (req.session && req.session.userId) {
       const user = await storage.getUser(req.session.userId);
       if (user) {
@@ -23,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
-    // Fall back to OAuth authentication
+    // 回退到OAuth认证
     return isAuthenticated(req, res, next);
   };
 

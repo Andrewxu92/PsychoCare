@@ -15,6 +15,10 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, Video, Users, ArrowLeft, AlertCircle } from "lucide-react";
 import type { AppointmentWithDetails } from "@shared/schema";
 
+/**
+ * 支付完成页面
+ * 用于处理未完成支付的预约，允许用户重新支付
+ */
 export default function Payment() {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -24,8 +28,9 @@ export default function Payment() {
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const appointmentId = urlParams.get('appointmentId');
   
-  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  // 组件状态
+  const [paymentIntentId, setPaymentIntentId] = useState<string>(''); // Airwallex支付意图ID
+  const [isProcessing, setIsProcessing] = useState(false); // 是否正在处理支付
 
   // 获取预约详情
   const { data: appointment, isLoading: appointmentLoading } = useQuery<AppointmentWithDetails>({
@@ -66,7 +71,8 @@ export default function Payment() {
     }
   }, [appointment, user, setLocation, toast]);
 
-  const getInitials = (firstName?: string, lastName?: string) => {
+  // 辅助函数：获取用户姓名首字母
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}` || 'T';
   };
 
