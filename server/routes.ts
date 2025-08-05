@@ -1479,26 +1479,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Create transfer request to Airwallex using the reusable function
             const transferData = {
-              amount: amount.toFixed(2),
-              currency: "HKD",
-              beneficiary: {
-                digital_wallet: {
-                  account_name: beneficiary.accountHolderName,
-                  id_type: beneficiary.walletId ? "account_number" : "email",
-                  id_value: beneficiary.walletId || beneficiary.walletEmail,
-                  provider: "AIRWALLEX",
-                },
-                type: "DIGITAL_WALLET",
-              },
-              metadata: {
-                therapist_id: therapistId.toString(),
-                withdrawal_id: Date.now().toString(),
-              },
-              reason: "withdrawal",
-              reference: `WD-${Date.now()}`,
-              request_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               source_currency: "HKD",
+              transfer_currency: "HKD",
               transfer_method: "LOCAL",
+              amount: amount.toFixed(2),
+              transfer_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+              reference: `WD-${Date.now()}`,
+              beneficiary: {
+                type: "DIGITAL_WALLET",
+                entity_type: "PERSONAL",
+                first_name: beneficiary.accountHolderName.split(' ')[0] || beneficiary.accountHolderName,
+                last_name: beneficiary.accountHolderName.split(' ').slice(1).join(' ') || "",
+                digital_wallet: {
+                  type: "airwallex_pay",
+                  account_name: beneficiary.accountHolderName,
+                  account_number: beneficiary.walletId || beneficiary.walletEmail
+                }
+              }
             };
 
             const transferResponse = await makeAirwallexRequest(
