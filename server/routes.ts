@@ -1400,6 +1400,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 3000);
   }
 
+  // Demo API for manual transfer status check
+  app.post('/api/demo/check-transfer-status', async (req, res) => {
+    try {
+      const { transferId } = req.body;
+      if (!transferId) {
+        return res.status(400).json({ message: "Transfer ID required" });
+      }
+
+      console.log(`Manual status check for transfer: ${transferId}`);
+      const statusResponse = await makeAirwallexRequest(`/api/v1/transfers/${transferId}`, {
+        method: 'GET'
+      });
+
+      if (statusResponse.ok) {
+        const transferData = await statusResponse.json();
+        console.log(`Transfer ${transferId} manual check - status: ${transferData.status}`);
+        
+        if (transferData.status === 'PAID') {
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'completed',
+            completedAt: new Date()
+          });
+          res.json({ message: "Transfer completed and updated", status: transferData.status });
+        } else if (transferData.status === 'FAILED' || transferData.status === 'CANCELLED') {
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'failed',
+            failureReason: `Transfer ${transferData.status.toLowerCase()}`
+          });
+          res.json({ message: "Transfer failed and updated", status: transferData.status });
+        } else {
+          res.json({ message: "Transfer still processing", status: transferData.status });
+        }
+      } else {
+        res.status(500).json({ message: "Failed to check transfer status" });
+      }
+    } catch (error) {
+      console.error("Error checking transfer status:", error);
+      res.status(500).json({ message: "Error checking transfer status" });
+    }
+  });
+
   // Demo API for testing - add sample earnings
   app.post('/api/demo/add-earnings', customAuth, async (req: any, res) => {
     try {
