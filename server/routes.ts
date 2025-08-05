@@ -425,8 +425,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const netAmount = appointmentPrice - commission;
 
         await storage.createTherapistEarnings({
-          therapistId: appointment.therapistId.toString(),
-          appointmentId: appointment.id.toString(),
+          therapistId: appointment.therapistId,
+          appointmentId: appointment.id,
           amount: appointmentPrice.toString(),
           commission: commission.toString(),
           netAmount: netAmount.toString(),
@@ -445,8 +445,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const netAmount = appointmentPrice - commission;
 
           earnings = await storage.createTherapistEarnings({
-            therapistId: appointment.therapistId.toString(),
-            appointmentId: appointment.id.toString(),
+            therapistId: appointment.therapistId,
+            appointmentId: appointment.id,
             amount: appointmentPrice.toString(),
             commission: commission.toString(),
             netAmount: netAmount.toString(),
@@ -547,6 +547,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Authentication failed',
         error: error.message
       });
+    }
+  });
+
+  // Get Airwallex access token for API calls
+  app.get('/api/airwallex/token', async (req, res) => {
+    try {
+      const accessToken = await getAirwallexAccessToken();
+      res.json({ accessToken });
+    } catch (error) {
+      console.error('Error getting Airwallex access token:', error);
+      res.status(500).json({ error: 'Failed to get access token' });
     }
   });
 
@@ -853,8 +864,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const netAmount = appointmentPrice - commission;
 
         await storage.createTherapistEarnings({
-          therapistId: appointment_data.therapistId.toString(),
-          appointmentId: appointment.id.toString(),
+          therapistId: appointment_data.therapistId,
+          appointmentId: appointment.id,
           amount: appointmentPrice.toString(),
           commission: commission.toString(),
           netAmount: netAmount.toString(),
@@ -1235,26 +1246,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "收款账户未找到" });
       }
 
-      // Create withdrawal request
+      let withdrawalStatus = "pending";
+      let airwallexTransferId = null;
+
+      // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
+      if (beneficiary.accountType === 'airwallex') {
+        try {
+          // Get Airwallex access token
+          const accessToken = await getAirwallexAccessToken();
+
+          // Create transfer request to Airwallex
+          const transferData = {
+            beneficiary: {
+              digital_wallet: {
+                account_name: beneficiary.accountHolderName,
+                id_type: beneficiary.walletId ? "account_number" : "email", 
+                id_value: beneficiary.walletId || beneficiary.walletEmail,
+                provider: "AIRWALLEX"
+              },
+              type: "DIGITAL_WALLET"
+            },
+            metadata: {
+              therapist_id: therapistId.toString(),
+              withdrawal_id: Date.now().toString()
+            },
+            reason: "withdrawal",
+            reference: `WD-${Date.now()}`,
+            request_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            source_currency: "HKD",
+            transfer_amount: amount.toFixed(2),
+            transfer_currency: "HKD", 
+            transfer_method: "LOCAL"
+          };
+
+          const transferResponse = await fetch('https://api-demo.airwallex.com/api/v1/transfers/create', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'x-client-id': process.env.AIRWALLEX_CLIENT_ID!,
+              'x-api-key': process.env.AIRWALLEX_API_KEY!
+            },
+            body: JSON.stringify(transferData)
+          });
+
+          if (transferResponse.ok) {
+            const transferResult = await transferResponse.json();
+            airwallexTransferId = transferResult.id;
+            withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
+            console.log('Airwallex transfer created:', transferResult);
+          } else {
+            const error = await transferResponse.text();
+            console.error('Airwallex transfer failed:', error);
+            withdrawalStatus = "failed";
+          }
+        } catch (error) {
+          console.error('Error processing Airwallex transfer:', error);
+          withdrawalStatus = "failed";
+        }
+      }
+
+      // Create withdrawal request with updated status
       const withdrawal = await storage.createWithdrawalRequest({
         therapistId,
         beneficiaryId,
         amount: amount.toString(),
         currency: beneficiary.currency,
-        status: "pending",
+        status: withdrawalStatus,
+        airwallexTransferId: airwallexTransferId || undefined,
       });
 
-      // Mark corresponding earnings as withdrawn
-      const availableEarnings = await storage.getTherapistEarnings(therapistId, { status: "available" });
-      let remainingAmount = amount;
-      
-      for (const earning of availableEarnings) {
-        if (remainingAmount <= 0) break;
+      // Only mark earnings as withdrawn if transfer was successful or for non-Airwallex accounts
+      if (withdrawalStatus !== "failed") {
+        const availableEarnings = await storage.getTherapistEarnings(therapistId, { status: "available" });
+        let remainingAmount = amount;
         
-        const earningAmount = parseFloat(earning.netAmount);
-        if (earningAmount <= remainingAmount) {
-          await storage.updateTherapistEarnings(earning.id, { status: "withdrawn" });
-          remainingAmount -= earningAmount;
+        for (const earning of availableEarnings) {
+          if (remainingAmount <= 0) break;
+          
+          const earningAmount = parseFloat(earning.netAmount);
+          if (earningAmount <= remainingAmount) {
+            await storage.updateTherapistEarnings(earning.id, { status: "withdrawn" });
+            remainingAmount -= earningAmount;
+          }
         }
       }
 
