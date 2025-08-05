@@ -178,13 +178,9 @@ export default function Booking() {
     }
   };
 
-  const handlePaymentSuccess = (paymentResult?: any) => {
-    console.log('Payment succeeded:', paymentResult);
+  const handlePaymentSuccess = (intentId: string) => {
+    console.log('Payment succeeded with intent ID:', intentId);
     // 支付成功后获取payment intent ID并进入监控阶段
-    const intentId = paymentResult?.intent?.payment_intent_id || 
-                    paymentResult?.intent?.id ||
-                    paymentResult?.id;
-    
     if (intentId) {
       setPaymentIntentId(intentId);
       setCurrentStep('monitoring');
@@ -197,11 +193,11 @@ export default function Booking() {
     }
   };
 
-  const handlePaymentFailure = () => {
-    console.log('Payment failed');
+  const handlePaymentFailure = (error: string) => {
+    console.log('Payment failed:', error);
     toast({
       title: "支付失败",
-      description: "支付过程中出现问题，请重新尝试",
+      description: error || "支付过程中出现问题，请重新尝试",
       variant: "destructive",
     });
     setCurrentStep('payment'); // 回到支付步骤
@@ -451,10 +447,11 @@ export default function Booking() {
                 {currentStep === 'payment' && therapist && bookingData.appointmentDate && (
                   <PaymentForm
                     amount={Number(therapist.hourlyRate)}
+                    currency="HKD"
                     appointmentData={bookingData}
-                    onPaymentSuccess={handlePaymentSuccess}
-                    onPaymentFailure={handlePaymentFailure}
-                    isLoading={createAppointmentMutation.isPending}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentFailure}
+                    disabled={createAppointmentMutation.isPending}
                   />
                 )}
 
