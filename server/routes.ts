@@ -1277,14 +1277,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             transfer_method: "LOCAL"
           };
 
-          const transferResult = await makeAirwallexRequest('/api/v1/transfers/create', {
+          const transferResponse = await makeAirwallexRequest('/api/v1/transfers/create', {
             method: 'POST',
-            body: transferData
+            body: JSON.stringify(transferData)
           });
 
-          airwallexTransferId = transferResult.id;
+          if (transferResponse.ok) {
+            const transferResult = await transferResponse.json();
+            airwallexTransferId = transferResult.id;
+          } else {
+            throw new Error(`Transfer failed: ${transferResponse.status}`);
+          }
           withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
-          console.log('Airwallex transfer created:', transferResult);
+          console.log('Airwallex transfer created successfully with ID:', airwallexTransferId);
         } catch (error) {
           console.error('Error processing Airwallex transfer:', error);
           withdrawalStatus = "failed";
