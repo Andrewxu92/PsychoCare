@@ -735,7 +735,7 @@ export default function TherapistWallet() {
                     <DialogHeader>
                       <DialogTitle>申请提现</DialogTitle>
                       <DialogDescription>
-                        可提现余额: HK${walletSummary?.availableBalance || 0}
+                        申请将您的可用余额提现到指定收款账户
                       </DialogDescription>
                     </DialogHeader>
                     <Form {...withdrawalForm}>
@@ -922,6 +922,9 @@ export default function TherapistWallet() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>收款账户详细信息</DialogTitle>
+              <DialogDescription>
+                查看您添加的收款账户的详细信息
+              </DialogDescription>
             </DialogHeader>
             {selectedBeneficiary && (
               <div className="space-y-6">
@@ -967,7 +970,7 @@ export default function TherapistWallet() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">状态</label>
-                    <p className="mt-1">
+                    <div className="mt-1">
                       {selectedBeneficiary.isActive ? (
                         <Badge variant="default" className="bg-green-100 text-green-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
@@ -979,7 +982,7 @@ export default function TherapistWallet() {
                           非活跃
                         </Badge>
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">创建时间</label>
