@@ -802,9 +802,9 @@ export default function TherapistWallet() {
                                 {beneficiary.accountType === "airwallex" ? (
                                   beneficiary.walletEmail || beneficiary.walletId || "Airwallex钱包"
                                 ) : (
-                                  showAccountNumbers[beneficiary.id] 
-                                    ? beneficiary.accountNumber 
-                                    : maskAccountNumber(beneficiary.accountNumber)
+                                  showAccountNumbers[beneficiary.accountNumber] 
+                                    ?maskAccountNumber(beneficiary.accountNumber) 
+                                    :beneficiary.accountRoutingValue1
                                 )}
                               </p>
                               <Button
