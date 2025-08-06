@@ -1070,7 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Airwallex validation failed:', airwallexRawData.errors);
           return res.status(400).json({ 
             message: "收款人信息验证失败", 
-            details: airwallexRawData.errors.message || "请检查表单信息并填写正确的值"
+            details: "请检查表单信息并填写正确的值"
           });
         }
         
