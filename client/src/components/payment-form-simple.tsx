@@ -140,6 +140,18 @@ export default function PaymentForm({
           intent_id: paymentIntent.id,
           client_secret: paymentIntent.client_secret,
           currency: paymentIntent.currency,
+          applePayRequestOptions: {
+            countryCode: " HK",
+            requiredBillingContactFields: [
+              "postalAddress",
+              "email",
+              "name",
+              "phone",
+            ], // optional field
+            requiredShippingContactFields: ["name", "email"], // optional field
+            buttonType: "Book", // Indicate the type of button you want displayed on your payments form. Like 'buy'
+            buttonColor: "white-with-line", // Indicate the color of the button. Default value is 'black'
+          },
         },
       );
 
@@ -156,24 +168,31 @@ export default function PaymentForm({
       element.on("success", async (event: any) => {
         console.log("Payment succeeded:", event.detail);
         setIsProcessing(true);
-        
+
         try {
           // Extract payment intent ID from the event
-          const paymentIntentId = event.detail?.intent?.payment_intent_id || 
-                                 event.detail?.intent?.id ||
-                                 paymentIntent.id;
-          
+          const paymentIntentId =
+            event.detail?.intent?.payment_intent_id ||
+            event.detail?.intent?.id ||
+            paymentIntent.id;
+
           // Verify payment status with backend before proceeding
-          const response = await apiRequest("GET", `/api/payments/intent/${paymentIntentId}/status`);
+          const response = await apiRequest(
+            "GET",
+            `/api/payments/intent/${paymentIntentId}/status`,
+          );
           const statusResponse = await response.json();
-          
+
           console.log("Full status response:", statusResponse);
-          
-          if (statusResponse.status === 'SUCCEEDED') {
+
+          if (statusResponse.status === "SUCCEEDED") {
             console.log("Payment status verified as SUCCEEDED");
             onSuccess(paymentIntentId);
           } else {
-            console.error("Payment not successful, status:", statusResponse.status);
+            console.error(
+              "Payment not successful, status:",
+              statusResponse.status,
+            );
             setPaymentError(`支付未成功，状态: ${statusResponse.status}`);
             setIsProcessing(false);
             onError(`支付未成功，状态: ${statusResponse.status}`);
