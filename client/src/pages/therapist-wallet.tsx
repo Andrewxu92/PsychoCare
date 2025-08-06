@@ -801,10 +801,13 @@ export default function TherapistWallet() {
                               <p className="text-sm text-gray-600">
                                 {beneficiary.accountType === "airwallex" ? (
                                   beneficiary.walletEmail || beneficiary.walletId || "Airwallex钱包"
+                                ) : beneficiary.accountNumber ? (
+                                  showAccountNumbers[beneficiary.id] 
+                                    ? beneficiary.accountNumber 
+                                    : maskAccountNumber(beneficiary.accountNumber)
                                 ) : (
-                                  showAccountNumbers[beneficiary.accountNumber] 
-                                    ?maskAccountNumber(beneficiary.accountNumber) 
-                                    :beneficiary.accountRoutingValue1
+                                  // 如果没有账户号码，显示路由信息作为标识
+                                  beneficiary.accountRoutingValue1 || '收款账户'
                                 )}
                               </p>
                               <Button

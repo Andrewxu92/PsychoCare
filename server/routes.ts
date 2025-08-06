@@ -1082,11 +1082,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Invalid Airwallex beneficiary data" });
         }
 
+        // Smart mapping for different types of Airwallex beneficiaries
+        let finalAccountNumber = bankDetails.account_number || '';
+        
+        // If no traditional account number, try to use routing value as identifier
+        if (!finalAccountNumber && bankDetails.account_routing_value1) {
+          // For email addresses, phone numbers, etc., keep as routing info only
+          // Don't put them in accountNumber field for security reasons
+          finalAccountNumber = '';
+        }
+
         const beneficiaryData = insertTherapistBeneficiarySchema.parse({
           therapistId,
           accountType: 'bank',
           bankName: bankDetails.bank_name || '',
-          accountNumber: bankDetails.account_number || '',
+          accountNumber: finalAccountNumber,
           accountHolderName: bankDetails.account_name || '',
           currency: bankDetails.account_currency || 'USD',
           // Map Airwallex routing information to our schema
