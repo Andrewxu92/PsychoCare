@@ -127,6 +127,7 @@ export interface IStorage {
   getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]>;
   createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
   updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest>;
+  updateWithdrawalByTransferId(transferId: string, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -269,7 +270,7 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<AppointmentWithDetails[]> {
-    let query = db
+    const baseQuery = db
       .select()
       .from(appointments)
       .innerJoin(users, eq(appointments.clientId, users.id))
@@ -297,11 +298,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(appointments.appointmentDate, filters.dateTo));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const results = await query.orderBy(desc(appointments.appointmentDate));
+    const results = conditions.length > 0 
+      ? await baseQuery.where(and(...conditions)).orderBy(desc(appointments.appointmentDate))
+      : await baseQuery.orderBy(desc(appointments.appointmentDate));
     
     return results.map(result => ({
       ...result.appointments,
@@ -348,17 +347,15 @@ export class DatabaseStorage implements IStorage {
 
   // Review operations
   async getReviews(therapistId?: number): Promise<ReviewWithDetails[]> {
-    let query = db
+    const baseQuery = db
       .select()
       .from(reviews)
       .innerJoin(users, eq(reviews.clientId, users.id))
       .innerJoin(therapists, eq(reviews.therapistId, therapists.id));
 
-    if (therapistId) {
-      query = query.where(eq(reviews.therapistId, therapistId));
-    }
-
-    const results = await query.orderBy(desc(reviews.createdAt));
+    const results = therapistId 
+      ? await baseQuery.where(eq(reviews.therapistId, therapistId)).orderBy(desc(reviews.createdAt))
+      : await baseQuery.orderBy(desc(reviews.createdAt));
     
     return results.map(result => ({
       ...result.reviews,
@@ -599,6 +596,14 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(withdrawalRequests)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(withdrawalRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  async updateWithdrawalByTransferId(transferId: string, updates: Partial<WithdrawalRequest>): Promise<WithdrawalRequest | undefined> {
+    const [result] = await db.update(withdrawalRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(withdrawalRequests.airwallexTransferId, transferId))
       .returning();
     return result;
   }

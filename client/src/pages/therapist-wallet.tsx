@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 // Form schemas - Updated to support manual Airwallex wallet entry
 const beneficiaryFormSchema = z.object({
@@ -45,7 +46,12 @@ const beneficiaryFormSchema = z.object({
   walletEmail: z.string().optional(),
   currency: z.string().default("HKD"),
   airwallexBeneficiaryId: z.string().optional(),
-  isDefault: z.boolean().default(false)
+  isDefault: z.boolean().default(false),
+  // Bank routing information
+  accountRoutingType1: z.string().optional(),
+  accountRoutingValue1: z.string().optional(),
+  accountRoutingType2: z.string().optional(),
+  accountRoutingValue2: z.string().optional()
 }).superRefine((data, ctx) => {
   // Validate based on account type
   if (data.accountType === "airwallex") {
@@ -130,10 +136,41 @@ export default function TherapistWallet() {
   });
 
   // Withdrawals query
-  const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery<any[]>({
+  const { data: withdrawals, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/withdrawals`],
     enabled: !!therapistId
   });
+
+  // Auto-refresh for processing withdrawals (limited to 30 seconds)
+  useEffect(() => {
+    if (!withdrawals) return;
+    
+    const hasProcessingWithdrawals = withdrawals.some((w: any) => w.status === 'processing');
+    
+    if (hasProcessingWithdrawals) {
+      const startTime = Date.now();
+      const MAX_POLLING_TIME = 30000; // 30 seconds
+      let attemptCount = 0;
+      const MAX_ATTEMPTS = 10;
+      
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        attemptCount++;
+        
+        // Stop polling after 30 seconds or 10 attempts
+        if (elapsed >= MAX_POLLING_TIME || attemptCount >= MAX_ATTEMPTS) {
+          console.log(`Frontend polling stopped after ${Math.round(elapsed/1000)}s (${attemptCount} attempts)`);
+          clearInterval(interval);
+          return;
+        }
+        
+        console.log(`Frontend polling attempt ${attemptCount}/${MAX_ATTEMPTS} (${Math.round(elapsed/1000)}s elapsed)`);
+        refetchWithdrawals();
+      }, 3000); // Refresh every 3 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [withdrawals, refetchWithdrawals]);
 
   // Forms
   const beneficiaryForm = useForm<BeneficiaryFormData>({
@@ -175,13 +212,37 @@ export default function TherapistWallet() {
         description: "您的收款账户已成功添加到系统中"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Add beneficiary error:', error);
       setShowAirwallexForm(false);
       setIsBindingInProgress(false);
+      
+      // Extract error message from server response
+      let errorMessage = "请检查输入信息或重试";
+      let errorTitle = "绑定失败";
+      
+      if (error?.message) {
+        // Check if it's a server response with structured error
+        const match = error.message.match(/^400: (.+)/);
+        if (match) {
+          try {
+            const errorData = JSON.parse(match[1]);
+            if (errorData.message) {
+              errorTitle = errorData.message;
+              errorMessage = errorData.details || "请检查表单信息并填写正确的值";
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use the original error message
+            errorMessage = match[1];
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({ 
-        title: "绑定失败", 
-        description: "请检查输入信息或重试", 
+        title: errorTitle, 
+        description: errorMessage, 
         variant: "destructive" 
       });
     }
@@ -606,6 +667,90 @@ export default function TherapistWallet() {
                           )}
                         />
 
+                        {beneficiaryForm.watch("accountType") === "bank" && (
+                          <div className="space-y-4 border rounded-lg p-4 bg-gray-50">
+                            <div className="text-sm font-medium text-gray-700">银行路由信息 (可选)</div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型1</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值1</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型2</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值2</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        )}
+
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
                                 取消
@@ -656,10 +801,13 @@ export default function TherapistWallet() {
                               <p className="text-sm text-gray-600">
                                 {beneficiary.accountType === "airwallex" ? (
                                   beneficiary.walletEmail || beneficiary.walletId || "Airwallex钱包"
-                                ) : (
+                                ) : beneficiary.accountNumber ? (
                                   showAccountNumbers[beneficiary.id] 
                                     ? beneficiary.accountNumber 
                                     : maskAccountNumber(beneficiary.accountNumber)
+                                ) : (
+                                  // 如果没有账户号码，显示路由信息作为标识
+                                  beneficiary.accountRoutingValue1 || '收款账户'
                                 )}
                               </p>
                               <Button
@@ -958,6 +1106,25 @@ export default function TherapistWallet() {
                         <div className="text-sm font-medium text-gray-700">银行名称</div>
                         <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
                       </div>
+                      {(selectedBeneficiary.accountRoutingType1 || selectedBeneficiary.accountRoutingType2) && (
+                        <div className="col-span-2">
+                          <div className="text-sm font-medium text-gray-700 mb-2">银行路由信息</div>
+                          <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                            {selectedBeneficiary.accountRoutingType1 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType1.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue1}</p>
+                              </div>
+                            )}
+                            {selectedBeneficiary.accountRoutingType2 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType2.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue2}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                   <div>
