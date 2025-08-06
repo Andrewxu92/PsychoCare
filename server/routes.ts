@@ -1089,6 +1089,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountNumber: bankDetails.account_number || '',
           accountHolderName: bankDetails.account_name || '',
           currency: bankDetails.account_currency || 'USD',
+          // Map Airwallex routing information to our schema
+          accountRoutingType1: bankDetails.account_routing_type1 || null,
+          accountRoutingValue1: bankDetails.account_routing_value1 || null,
+          accountRoutingType2: bankDetails.account_routing_type2 || null,
+          accountRoutingValue2: bankDetails.account_routing_value2 || null,
           airwallexBeneficiaryId: beneficiary.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           isDefault: false,
           // Store complete Airwallex data as JSON for future reference
@@ -1099,7 +1104,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(createdBeneficiary);
       } else {
         // This is manual form data
-        const { accountType, accountHolderName, accountNumber, bankName, walletId, walletEmail, currency = "HKD" } = req.body;
+        const { 
+          accountType, 
+          accountHolderName, 
+          accountNumber, 
+          bankName, 
+          walletId, 
+          walletEmail, 
+          currency = "HKD",
+          accountRoutingType1,
+          accountRoutingValue1,
+          accountRoutingType2,
+          accountRoutingValue2
+        } = req.body;
         
         // Validate required fields based on account type
         if (!accountType || !accountHolderName) {
@@ -1128,6 +1145,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           beneficiaryData.accountNumber = accountNumber;
           if (accountType === "bank" && bankName) {
             beneficiaryData.bankName = bankName;
+          }
+          
+          // Add routing information for bank accounts
+          if (accountRoutingType1) {
+            beneficiaryData.accountRoutingType1 = accountRoutingType1;
+          }
+          if (accountRoutingValue1) {
+            beneficiaryData.accountRoutingValue1 = accountRoutingValue1;
+          }
+          if (accountRoutingType2) {
+            beneficiaryData.accountRoutingType2 = accountRoutingType2;
+          }
+          if (accountRoutingValue2) {
+            beneficiaryData.accountRoutingValue2 = accountRoutingValue2;
           }
         }
 

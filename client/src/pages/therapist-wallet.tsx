@@ -46,7 +46,12 @@ const beneficiaryFormSchema = z.object({
   walletEmail: z.string().optional(),
   currency: z.string().default("HKD"),
   airwallexBeneficiaryId: z.string().optional(),
-  isDefault: z.boolean().default(false)
+  isDefault: z.boolean().default(false),
+  // Bank routing information
+  accountRoutingType1: z.string().optional(),
+  accountRoutingValue1: z.string().optional(),
+  accountRoutingType2: z.string().optional(),
+  accountRoutingValue2: z.string().optional()
 }).superRefine((data, ctx) => {
   // Validate based on account type
   if (data.accountType === "airwallex") {
@@ -662,6 +667,90 @@ export default function TherapistWallet() {
                           )}
                         />
 
+                        {beneficiaryForm.watch("accountType") === "bank" && (
+                          <div className="space-y-4 border rounded-lg p-4 bg-gray-50">
+                            <div className="text-sm font-medium text-gray-700">银行路由信息 (可选)</div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型1</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值1</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型2</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值2</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        )}
+
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
                                 取消
@@ -1014,6 +1103,25 @@ export default function TherapistWallet() {
                         <div className="text-sm font-medium text-gray-700">银行名称</div>
                         <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
                       </div>
+                      {(selectedBeneficiary.accountRoutingType1 || selectedBeneficiary.accountRoutingType2) && (
+                        <div className="col-span-2">
+                          <div className="text-sm font-medium text-gray-700 mb-2">银行路由信息</div>
+                          <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                            {selectedBeneficiary.accountRoutingType1 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType1.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue1}</p>
+                              </div>
+                            )}
+                            {selectedBeneficiary.accountRoutingType2 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType2.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue2}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                   <div>
