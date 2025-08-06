@@ -1065,6 +1065,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const airwallexRawData = req.body;
         console.log('Received Airwallex raw data:', JSON.stringify(airwallexRawData, null, 2));
         
+        // Check for validation errors first
+        if (airwallexRawData.errors && airwallexRawData.errors.code === 'VALIDATION_FAILED') {
+          console.error('Airwallex validation failed:', airwallexRawData.errors);
+          return res.status(400).json({ 
+            message: "收款人信息验证失败", 
+            details: airwallexRawData.errors.message || "请检查表单信息并填写正确的值"
+          });
+        }
+        
         // Extract beneficiary information from Airwallex data
         const beneficiary = airwallexRawData.values?.beneficiary;
         const bankDetails = beneficiary?.bank_details;

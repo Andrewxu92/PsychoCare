@@ -207,13 +207,37 @@ export default function TherapistWallet() {
         description: "您的收款账户已成功添加到系统中"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Add beneficiary error:', error);
       setShowAirwallexForm(false);
       setIsBindingInProgress(false);
+      
+      // Extract error message from server response
+      let errorMessage = "请检查输入信息或重试";
+      let errorTitle = "绑定失败";
+      
+      if (error?.message) {
+        // Check if it's a server response with structured error
+        const match = error.message.match(/^400: (.+)/);
+        if (match) {
+          try {
+            const errorData = JSON.parse(match[1]);
+            if (errorData.message) {
+              errorTitle = errorData.message;
+              errorMessage = errorData.details || "请检查表单信息并填写正确的值";
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use the original error message
+            errorMessage = match[1];
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({ 
-        title: "绑定失败", 
-        description: "请检查输入信息或重试", 
+        title: errorTitle, 
+        description: errorMessage, 
         variant: "destructive" 
       });
     }
