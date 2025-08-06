@@ -135,7 +135,7 @@ export default function BookingSuccess() {
 
               {appointment.price && (
                 <div className="flex items-center space-x-3">
-                  <span className="text-lg font-bold text-primary">¥{appointment.price}</span>
+                  <span className="text-lg font-bold text-primary">HK${appointment.price}</span>
                   <Badge variant="outline" className="text-green-600 border-green-600">
                     已支付
                   </Badge>

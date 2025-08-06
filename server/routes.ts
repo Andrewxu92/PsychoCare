@@ -1,18 +1,46 @@
+/**
+ * 心理咨询平台 - 后端路由配置
+ * 
+ * 主要功能模块：
+ * 1. 用户认证（Demo登录系统 + Replit OAuth）
+ * 2. 咨询师管理（注册、认证、钱包）
+ * 3. 预约系统（创建、确认、支付）
+ * 4. 支付集成（Airwallex支付网关）
+ * 5. 收入管理（咨询师收益、提现）
+ * 6. 评价系统（客户反馈）
+ */
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { findDemoUser, validatePassword, validateVerificationCode } from "./demo-users";
+import { makeAirwallexRequest } from "./airwallex-config";
 import { z } from "zod";
-import { insertTherapistSchema, insertAppointmentSchema, insertReviewSchema, insertAvailabilitySchema, insertTherapistCredentialSchema, insertTherapistEarningsSchema, insertTherapistBeneficiarySchema, insertWithdrawalRequestSchema } from "@shared/schema";
-import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken, makeAirwallexRequest } from "./airwallex-config";
+import { 
+  insertTherapistSchema, 
+  insertAppointmentSchema, 
+  insertReviewSchema, 
+  insertAvailabilitySchema, 
+  insertTherapistCredentialSchema, 
+  insertTherapistEarningsSchema, 
+  insertTherapistBeneficiarySchema, 
+  insertWithdrawalRequestSchema 
+} from "@shared/schema";
+import { airwallexConfig, frontendAirwallexConfig, getAirwallexAccessToken } from "./airwallex-config";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // 初始化认证中间件
   await setupAuth(app);
 
-  // Custom authentication middleware that supports both OAuth and demo login
+  /**
+   * 自定义认证中间件
+   * 支持两种认证方式：
+   * 1. Demo登录（基于session的简单认证）
+   * 2. Replit OAuth（生产环境认证）
+   */
   const customAuth = async (req: any, res: any, next: any) => {
-    // Check for demo login session first
+    // 优先检查Demo登录会话
     if (req.session && req.session.userId) {
       const user = await storage.getUser(req.session.userId);
       if (user) {
@@ -21,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
-    // Fall back to OAuth authentication
+    // 回退到OAuth认证
     return isAuthenticated(req, res, next);
   };
 
@@ -389,6 +417,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       delete updates.clientId; // Prevent changing client
       
       const updatedAppointment = await storage.updateAppointment(id, updates);
+
+      // If payment status changed to "paid", create earnings record
+      if (updates.paymentStatus === "paid" && appointment.paymentStatus !== "paid") {
+        const appointmentPrice = parseFloat(appointment.price);
+        const commission = appointmentPrice * 0.5; // 50% platform commission
+        const netAmount = appointmentPrice - commission;
+
+        await storage.createTherapistEarnings({
+          therapistId: appointment.therapistId,
+          appointmentId: appointment.id,
+          amount: appointmentPrice.toString(),
+          commission: commission.toString(),
+          netAmount: netAmount.toString(),
+          status: "pending", // Will be "available" after session completion
+        });
+      }
+
+      // If status changed to "completed", create earnings if not exists and make available
+      if (updates.status === "completed" && appointment.status !== "completed") {
+        let earnings = await storage.getTherapistEarningsByAppointment(appointment.id);
+        
+        // Create earnings record if it doesn't exist (for cases where payment status is still pending)
+        if (!earnings && appointment.price && parseFloat(appointment.price) > 0) {
+          const appointmentPrice = parseFloat(appointment.price);
+          const commission = appointmentPrice * 0.5; // 50% platform commission
+          const netAmount = appointmentPrice - commission;
+
+          earnings = await storage.createTherapistEarnings({
+            therapistId: appointment.therapistId,
+            appointmentId: appointment.id,
+            amount: appointmentPrice.toString(),
+            commission: commission.toString(),
+            netAmount: netAmount.toString(),
+            status: "available", // Directly available since session is completed
+          });
+        } else if (earnings) {
+          // Update existing earnings to available
+          await storage.updateTherapistEarnings(earnings.id, { status: "available" });
+        }
+      }
+
       res.json(updatedAppointment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -478,6 +547,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Authentication failed',
         error: error.message
       });
+    }
+  });
+
+  // Get Airwallex access token for API calls
+  app.get('/api/airwallex/token', async (req, res) => {
+    try {
+      const accessToken = await getAirwallexAccessToken();
+      res.json({ accessToken });
+    } catch (error) {
+      console.error('Error getting Airwallex access token:', error);
+      res.status(500).json({ error: 'Failed to get access token' });
     }
   });
 
@@ -664,7 +744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payment intent using Airwallex demo API
       const intentData = {
         request_id: `req_${Date.now()}_${userId}`,
-        amount: Math.round(amount * 100), // Convert to cents
+        amount: amount, // Amount in currency units (e.g., 200 for HK$200)
         currency: currency,
         customer_id: customer_id,
         merchant_order_id: `order_${Date.now()}_${userId}`,
@@ -674,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             desc: '专业心理咨询师一对一咨询服务',
             sku: 'counseling-session',
             type: 'service',
-            unit_price: Math.round(amount * 100),
+            unit_price: amount,
             quantity: 1
           }]
         }
@@ -701,7 +781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntent = {
           id: `pi_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           client_secret: `pi_cs_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          amount: Math.round(amount * 100),
+          amount: amount,
           currency: currency,
           customer_id: customer_id,
           status: 'requires_payment_method'
@@ -715,21 +795,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment intent status check endpoint
+  app.get('/api/payments/intent/:id/status', customAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Query Airwallex API for payment intent status
+      const response = await makeAirwallexRequest(`/api/v1/pa/payment_intents/${id}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error fetching payment intent status:", response.status, errorText);
+        return res.status(response.status).json({ message: "Failed to fetch payment status" });
+      }
+      
+      const paymentIntent = await response.json();
+      
+      res.json({
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        last_payment_error: paymentIntent.last_payment_error
+      });
+    } catch (error) {
+      console.error("Error checking payment intent status:", error);
+      res.status(500).json({ message: "Failed to check payment status" });
+    }
+  });
+
   app.post('/api/payments/confirm', customAuth, async (req: any, res) => {
     try {
       const { payment_intent_id, appointment_data } = req.body;
       
-      // In a real implementation, confirm payment with Airwallex API
-      // For development, simulate successful payment
-      const paymentResult = {
-        id: payment_intent_id,
-        status: 'succeeded',
-        amount_received: appointment_data?.price ? Math.round(appointment_data.price * 100) : 0,
-        currency: 'CNY'
-      };
-
-      // If payment successful and appointment data provided, create appointment
-      if (paymentResult.status === 'succeeded' && appointment_data) {
+      // Query Airwallex API for actual payment intent status
+      const statusResponse = await makeAirwallexRequest(`/api/v1/pa/payment_intents/${payment_intent_id}`);
+      
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error("Error fetching payment intent status:", statusResponse.status, errorText);
+        return res.status(statusResponse.status).json({ message: "Failed to verify payment status" });
+      }
+      
+      const paymentIntent = await statusResponse.json();
+      console.log("Payment intent status:", paymentIntent.status);
+      
+      // Only proceed if payment status is SUCCEEDED
+      if (paymentIntent.status === 'SUCCEEDED' && appointment_data) {
         const userId = req.user.claims.sub;
         const appointmentData = insertAppointmentSchema.parse({
           clientId: userId,
@@ -740,17 +852,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'confirmed',
           clientNotes: appointment_data.clientNotes || '',
           paymentStatus: 'paid',
+          paymentIntentId: payment_intent_id,
           price: appointment_data.price || 0
         });
         
         const appointment = await storage.createAppointment(appointmentData);
         
+        // Create earnings record when payment is confirmed
+        const appointmentPrice = parseFloat(appointment_data.price);
+        const commission = appointmentPrice * 0.5; // 50% platform commission
+        const netAmount = appointmentPrice - commission;
+
+        await storage.createTherapistEarnings({
+          therapistId: appointment_data.therapistId,
+          appointmentId: appointment.id,
+          amount: appointmentPrice.toString(),
+          commission: commission.toString(),
+          netAmount: netAmount.toString(),
+          status: "pending", // Will be "available" after session completion
+        });
+        
         res.json({
-          payment: paymentResult,
+          payment: {
+            id: paymentIntent.id,
+            status: paymentIntent.status,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency
+          },
           appointment: appointment
         });
+      } else if (paymentIntent.status !== 'SUCCEEDED') {
+        res.status(400).json({ 
+          message: "Payment not successful", 
+          status: paymentIntent.status,
+          error: paymentIntent.last_payment_error
+        });
       } else {
-        res.json({ payment: paymentResult });
+        res.json({ 
+          payment: {
+            id: paymentIntent.id,
+            status: paymentIntent.status,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency
+          }
+        });
       }
     } catch (error) {
       console.error("Error confirming payment:", error);
@@ -763,45 +908,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { emailOrPhone, password, verificationCode } = req.body;
       
-      // Demo users
-      const demoUsers = [
-        {
-          id: "demo_client_001",
-          email: "client@demo.com",
-          phone: "13800138001",
-          password: "demo123",
-          firstName: "张",
-          lastName: "三",
-          profileImageUrl: null,
-          role: "client"
-        },
-        {
-          id: "demo_therapist_001", 
-          email: "therapist@demo.com",
-          phone: "13800138002",
-          password: "demo123",
-          firstName: "李",
-          lastName: "医生",
-          profileImageUrl: null,
-          role: "therapist"
-        }
-      ];
-
       // Find user by email or phone
-      const user = demoUsers.find(u => 
-        u.email === emailOrPhone || u.phone === emailOrPhone
-      );
+      const user = findDemoUser(emailOrPhone);
 
       if (!user) {
         return res.status(401).json({ message: "用户不存在" });
       }
 
       // Validate password or verification code
-      if (password && user.password !== password) {
+      if (password && !validatePassword(user, password)) {
         return res.status(401).json({ message: "密码错误" });
       }
 
-      if (verificationCode && verificationCode !== "123456") {
+      if (verificationCode && !validateVerificationCode(verificationCode)) {
         return res.status(401).json({ message: "验证码错误" });
       }
 
@@ -940,33 +1059,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Accept complete Airwallex SDK raw result
-      const airwallexRawData = req.body;
-      console.log('Received Airwallex raw data:', JSON.stringify(airwallexRawData, null, 2));
-      
-      // Extract beneficiary information from Airwallex data
-      const beneficiary = airwallexRawData.values?.beneficiary;
-      const bankDetails = beneficiary?.bank_details;
-      
-      if (!beneficiary || !bankDetails) {
-        return res.status(400).json({ message: "Invalid Airwallex beneficiary data" });
+      // Check if this is Airwallex SDK data or manual form data
+      if (req.body.values?.beneficiary) {
+        // This is Airwallex SDK raw result
+        const airwallexRawData = req.body;
+        console.log('Received Airwallex raw data:', JSON.stringify(airwallexRawData, null, 2));
+        
+        // Check for validation errors first
+        if (airwallexRawData.errors && airwallexRawData.errors.code === 'VALIDATION_FAILED') {
+          console.error('Airwallex validation failed:', airwallexRawData.errors);
+          return res.status(400).json({ 
+            message: "收款人信息验证失败", 
+            details: "请检查表单信息并填写正确的值"
+          });
+        }
+        
+        // Extract beneficiary information from Airwallex data
+        const beneficiary = airwallexRawData.values?.beneficiary;
+        const bankDetails = beneficiary?.bank_details;
+        
+        if (!beneficiary || !bankDetails) {
+          return res.status(400).json({ message: "Invalid Airwallex beneficiary data" });
+        }
+
+        // Smart mapping for different types of Airwallex beneficiaries
+        let finalAccountNumber = bankDetails.account_number || '';
+        
+        // If no traditional account number, try to use routing value as identifier
+        if (!finalAccountNumber && bankDetails.account_routing_value1) {
+          // For email addresses, phone numbers, etc., keep as routing info only
+          // Don't put them in accountNumber field for security reasons
+          finalAccountNumber = '';
+        }
+
+        const beneficiaryData = insertTherapistBeneficiarySchema.parse({
+          therapistId,
+          accountType: 'bank',
+          bankName: bankDetails.bank_name || '',
+          accountNumber: finalAccountNumber,
+          accountHolderName: bankDetails.account_name || '',
+          currency: bankDetails.account_currency || 'USD',
+          // Map Airwallex routing information to our schema
+          accountRoutingType1: bankDetails.account_routing_type1 || null,
+          accountRoutingValue1: bankDetails.account_routing_value1 || null,
+          accountRoutingType2: bankDetails.account_routing_type2 || null,
+          accountRoutingValue2: bankDetails.account_routing_value2 || null,
+          airwallexBeneficiaryId: beneficiary.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          isDefault: false,
+          // Store complete Airwallex data as JSON for future reference
+          airwallexRawData: JSON.stringify(airwallexRawData)
+        });
+
+        const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
+        res.json(createdBeneficiary);
+      } else {
+        // This is manual form data
+        const { 
+          accountType, 
+          accountHolderName, 
+          accountNumber, 
+          bankName, 
+          walletId, 
+          walletEmail, 
+          currency = "HKD",
+          accountRoutingType1,
+          accountRoutingValue1,
+          accountRoutingType2,
+          accountRoutingValue2
+        } = req.body;
+        
+        // Validate required fields based on account type
+        if (!accountType || !accountHolderName) {
+          return res.status(400).json({ message: "缺少必填字段" });
+        }
+
+        let beneficiaryData: any = {
+          therapistId,
+          accountType,
+          accountHolderName,
+          currency,
+          isDefault: false,
+        };
+
+        // Add type-specific fields
+        if (accountType === "airwallex") {
+          if (!walletId && !walletEmail) {
+            return res.status(400).json({ message: "Airwallex钱包需要提供钱包ID或邮箱" });
+          }
+          beneficiaryData.walletId = walletId;
+          beneficiaryData.walletEmail = walletEmail;
+        } else {
+          if (!accountNumber) {
+            return res.status(400).json({ message: "账户号码为必填项" });
+          }
+          beneficiaryData.accountNumber = accountNumber;
+          if (accountType === "bank" && bankName) {
+            beneficiaryData.bankName = bankName;
+          }
+          
+          // Add routing information for bank accounts
+          if (accountRoutingType1) {
+            beneficiaryData.accountRoutingType1 = accountRoutingType1;
+          }
+          if (accountRoutingValue1) {
+            beneficiaryData.accountRoutingValue1 = accountRoutingValue1;
+          }
+          if (accountRoutingType2) {
+            beneficiaryData.accountRoutingType2 = accountRoutingType2;
+          }
+          if (accountRoutingValue2) {
+            beneficiaryData.accountRoutingValue2 = accountRoutingValue2;
+          }
+        }
+
+        const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
+        res.json(createdBeneficiary);
       }
-
-      const beneficiaryData = insertTherapistBeneficiarySchema.parse({
-        therapistId,
-        accountType: 'bank',
-        bankName: bankDetails.bank_name || '',
-        accountNumber: bankDetails.account_number || '',
-        accountHolderName: bankDetails.account_name || '',
-        currency: bankDetails.account_currency || 'USD',
-        airwallexBeneficiaryId: beneficiary.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        isDefault: false,
-        // Store complete Airwallex data as JSON for future reference
-        airwallexRawData: JSON.stringify(airwallexRawData)
-      });
-
-      const createdBeneficiary = await storage.createTherapistBeneficiary(beneficiaryData);
-      res.json(createdBeneficiary);
     } catch (error) {
       console.error("Error creating beneficiary:", error);
       res.status(500).json({ message: "Failed to create beneficiary" });
@@ -1058,22 +1266,285 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const therapistId = parseInt(req.params.therapistId);
       const userId = req.user.claims.sub;
       
+      console.log('=== WITHDRAWAL REQUEST RECEIVED ===');
+      console.log('TherapistId from params:', therapistId);
+      console.log('UserId from auth:', userId);
+      console.log('Request body:', req.body);
+      
       // Verify therapist ownership
       const therapist = await storage.getTherapistByUserId(userId);
       if (!therapist || therapist.id !== therapistId) {
+        console.log('Access denied - therapist mismatch:', { therapist, therapistId });
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const withdrawalData = insertWithdrawalRequestSchema.parse({
-        ...req.body,
-        therapistId
+      const { amount, beneficiaryId } = req.body;
+      console.log('Extracted values:', { amount, beneficiaryId });
+
+      // Validate amount
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "提现金额无效" });
+      }
+
+      // Check available balance
+      const walletSummary = await storage.getTherapistWalletSummary(therapistId);
+      if (walletSummary.availableBalance < amount) {
+        return res.status(400).json({ 
+          message: "可提现余额不足", 
+          availableBalance: walletSummary.availableBalance,
+          requestedAmount: amount
+        });
+      }
+
+      // Get beneficiary details
+      const beneficiaries = await storage.getTherapistBeneficiaries(therapistId);
+      const beneficiary = beneficiaries.find(b => b.id === beneficiaryId);
+      if (!beneficiary) {
+        return res.status(404).json({ message: "收款账户未找到" });
+      }
+
+      let withdrawalStatus = "pending";
+      let airwallexTransferId = null;
+
+      // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
+      if (beneficiary.accountType === 'airwallex') {
+        console.log('Processing Airwallex withdrawal for beneficiary:', beneficiary);
+        try {
+          // Create transfer request to Airwallex using the reusable function
+          const transferData = {
+            beneficiary: {
+              digital_wallet: {
+                account_name: beneficiary.accountHolderName,
+                id_type: beneficiary.walletId ? "account_number" : "email", 
+                id_value: beneficiary.walletId || beneficiary.walletEmail,
+                provider: "AIRWALLEX"
+              },
+              type: "DIGITAL_WALLET"
+            },
+            currency: "HKD", // Add required currency field at top level
+            metadata: {
+              therapist_id: therapistId.toString(),
+              withdrawal_id: Date.now().toString()
+            },
+            reason: "withdrawal",
+            reference: `WD-${Date.now()}`,
+            request_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            source_currency: "HKD",
+            transfer_amount: amount.toFixed(2),
+            transfer_currency: "HKD", 
+            transfer_method: "LOCAL"
+          };
+
+          const transferResponse = await makeAirwallexRequest('/api/v1/transfers/create', {
+            method: 'POST',
+            body: JSON.stringify(transferData)
+          });
+           console.log('Airwallex transfer request body:', JSON.stringify(transferData));
+          if (transferResponse.ok) {
+            const transferResult = await transferResponse.json();
+            airwallexTransferId = transferResult.id;
+          } else {
+            throw new Error(`Transfer failed: ${transferResponse.status}`);
+          }
+          withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
+          console.log('Airwallex transfer created successfully with ID:', airwallexTransferId);
+          
+          // Start polling for transfer status
+          if (airwallexTransferId) {
+            pollTransferStatus(airwallexTransferId);
+          }
+        } catch (error) {
+          console.error('Error processing Airwallex transfer:', error);
+          withdrawalStatus = "failed";
+        }
+      }
+
+
+      // Create withdrawal request with updated status
+      const withdrawal = await storage.createWithdrawalRequest({
+        therapistId,
+        beneficiaryId,
+        amount: amount.toString(),
+        currency: beneficiary.currency,
+        status: withdrawalStatus,
+        airwallexTransferId: airwallexTransferId || undefined,
       });
 
-      const withdrawal = await storage.createWithdrawalRequest(withdrawalData);
-      res.json(withdrawal);
+      // Only mark earnings as withdrawn if transfer was successful or for non-Airwallex accounts
+      if (withdrawalStatus !== "failed") {
+        const availableEarnings = await storage.getTherapistEarnings(therapistId, { status: "available" });
+        let remainingAmount = amount;
+        
+        for (const earning of availableEarnings) {
+          if (remainingAmount <= 0) break;
+          
+          const earningAmount = parseFloat(earning.netAmount);
+          if (earningAmount <= remainingAmount) {
+            await storage.updateTherapistEarnings(earning.id, { status: "withdrawn" });
+            remainingAmount -= earningAmount;
+          }
+        }
+      }
+
+      res.status(201).json({
+        ...withdrawal,
+        beneficiary: {
+          accountHolderName: beneficiary.accountHolderName,
+          currency: beneficiary.currency,
+          accountNumber: beneficiary.accountNumber
+        }
+      });
     } catch (error) {
       console.error("Error creating withdrawal:", error);
-      res.status(500).json({ message: "Failed to create withdrawal" });
+      res.status(500).json({ message: "提现申请失败" });
+    }
+  });
+
+  // Function to poll transfer status
+  async function pollTransferStatus(transferId: string, attempts: number = 0): Promise<void> {
+    const MAX_ATTEMPTS = 10; // 10 attempts * 3 seconds = 30 seconds
+    
+    if (attempts >= MAX_ATTEMPTS) {
+      console.log(`Polling stopped for transfer ${transferId} after ${MAX_ATTEMPTS} attempts`);
+      return;
+    }
+
+    try {
+      console.log(`Polling transfer status (attempt ${attempts + 1}/${MAX_ATTEMPTS}): ${transferId}`);
+      
+      const statusResponse = await makeAirwallexRequest(`/api/v1/transfers/${transferId}`, {
+        method: 'GET'
+      });
+
+      if (statusResponse.ok) {
+        const transferData = await statusResponse.json();
+        console.log(`Transfer ${transferId} status: ${transferData.status}`);
+        
+        if (transferData.status === 'PAID') {
+          // Update withdrawal status to completed
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'completed',
+            processedAt: new Date()
+          });
+          console.log(`Transfer ${transferId} completed successfully!`);
+          return;
+        } else if (transferData.status === 'FAILED' || transferData.status === 'CANCELLED') {
+          // Update withdrawal status to failed
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'failed',
+            failureReason: `Transfer ${transferData.status.toLowerCase()}`
+          });
+          console.log(`Transfer ${transferId} failed with status: ${transferData.status}`);
+          return;
+        }
+      } else {
+        console.error(`Failed to check transfer status: ${statusResponse.status}`);
+      }
+    } catch (error) {
+      console.error(`Error polling transfer status for ${transferId}:`, error);
+    }
+
+    // Schedule next poll in 3 seconds
+    setTimeout(() => {
+      pollTransferStatus(transferId, attempts + 1);
+    }, 3000);
+  }
+
+  // Demo API for manual transfer status check
+  app.post('/api/demo/check-transfer-status', async (req, res) => {
+    try {
+      const { transferId } = req.body;
+      if (!transferId) {
+        return res.status(400).json({ message: "Transfer ID required" });
+      }
+
+      console.log(`Manual status check for transfer: ${transferId}`);
+      const statusResponse = await makeAirwallexRequest(`/api/v1/transfers/${transferId}`, {
+        method: 'GET'
+      });
+
+      if (statusResponse.ok) {
+        const transferData = await statusResponse.json();
+        console.log(`Transfer ${transferId} manual check - status: ${transferData.status}`);
+        
+        if (transferData.status === 'PAID') {
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'completed',
+            processedAt: new Date()
+          });
+          res.json({ message: "Transfer completed and updated", status: transferData.status });
+        } else if (transferData.status === 'FAILED' || transferData.status === 'CANCELLED') {
+          await storage.updateWithdrawalByTransferId(transferId, {
+            status: 'failed',
+            failureReason: `Transfer ${transferData.status.toLowerCase()}`
+          });
+          res.json({ message: "Transfer failed and updated", status: transferData.status });
+        } else {
+          res.json({ message: "Transfer still processing", status: transferData.status });
+        }
+      } else {
+        res.status(500).json({ message: "Failed to check transfer status" });
+      }
+    } catch (error) {
+      console.error("Error checking transfer status:", error);
+      res.status(500).json({ message: "Error checking transfer status" });
+    }
+  });
+
+  // Demo API for testing - add sample earnings
+  app.post('/api/demo/add-earnings', customAuth, async (req: any, res) => {
+    try {
+      const sampleEarnings = [
+        {
+          therapistId: 7, // therapist@demo.com
+          appointmentId: 1,
+          amount: "200.00",
+          commission: "30.00", 
+          netAmount: "170.00",
+          currency: "CNY",
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 2,
+          amount: "150.00",
+          commission: "22.50",
+          netAmount: "127.50",
+          currency: "CNY", 
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 3,
+          amount: "180.00",
+          commission: "27.00",
+          netAmount: "153.00",
+          currency: "CNY",
+          status: "pending" as const,
+          earnedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        },
+        {
+          therapistId: 7,
+          appointmentId: 4,
+          amount: "220.00",
+          commission: "33.00",
+          netAmount: "187.00",
+          currency: "CNY",
+          status: "available" as const,
+          earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        }
+      ];
+
+      for (const earning of sampleEarnings) {
+        await storage.createTherapistEarnings(earning);
+      }
+
+      res.json({ message: "Sample earnings added", count: sampleEarnings.length });
+    } catch (error) {
+      console.error("Error adding sample earnings:", error);
+      res.status(500).json({ message: "Failed to add sample earnings" });
     }
   });
 

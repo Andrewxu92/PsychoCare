@@ -138,6 +138,28 @@ Changelog:
 - July 15, 2025. Added database schema for therapist earnings, beneficiaries, and withdrawal requests
 - July 15, 2025. Created complete wallet management interface with masked account numbers and transaction history
 - July 15, 2025. Extended API routes for wallet operations including earnings tracking and beneficiary management
+- August 04, 2025. Fixed payment amount inconsistency and currency display issues
+- August 04, 2025. Implemented 50% revenue sharing model for therapist earnings
+- August 04, 2025. Created separate demo users configuration file (server/demo-users.ts)
+- August 04, 2025. Added user Andrew Xu (44517059) to demo users with password demo@123
+- August 04, 2025. Fixed critical payment status verification bug: now correctly parses JSON response instead of checking HTTP status
+- August 04, 2025. Resolved booking confirmation page display issues (Invalid Date and NaN amounts) with proper data validation
+- August 04, 2025. Fixed DOM nesting validation warnings by restructuring Badge component usage in confirmation page
+- August 05, 2025. Successfully implemented Airwallex wallet as manual beneficiary account addition method
+- August 05, 2025. Added database schema support for walletId and walletEmail fields in therapist_beneficiaries table
+- August 05, 2025. Enhanced therapist wallet interface with dedicated Airwallex wallet form fields and validation
+- August 05, 2025. Fixed account display logic to properly show wallet information instead of traditional account numbers for Airwallex accounts
+- August 05, 2025. Completed comprehensive manual account addition system supporting bank, Alipay, WeChat, and Airwallex wallet options
+- August 05, 2025. Successfully implemented Airwallex Transfers API integration for real withdrawal processing with proper currency handling
+- August 05, 2025. Optimized code by properly reusing makeAirwallexRequest function instead of duplicating API logic
+- August 05, 2025. Fixed form accessibility issues by replacing improper label elements with div elements for display-only content
+- August 05, 2025. Implemented complete Airwallex transfer status polling system with 30-second time limits for both backend and frontend
+- August 05, 2025. Added automatic status tracking: backend polls every 3s for 30s, frontend auto-refreshes when processing withdrawals detected
+- August 05, 2025. Fixed infinite frontend polling issue by adding time and attempt limits matching backend polling behavior
+- August 06, 2025. Enhanced Airwallex beneficiary binding error handling: backend now detects VALIDATION_FAILED errors and prevents saving incomplete data
+- August 06, 2025. Improved frontend error display for beneficiary binding with detailed Chinese error messages from server responses
+- August 06, 2025. Added bank account routing information fields (accountRoutingType1/2, accountRoutingValue1/2) to therapist beneficiaries schema
+- August 06, 2025. Updated API routes to handle new routing fields for both Airwallex SDK data and manual form submissions
 ```
 
 ## User Preferences

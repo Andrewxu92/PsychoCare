@@ -28,6 +28,7 @@ export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
+  const [appointmentFilter, setAppointmentFilter] = useState('all'); // 'all', 'pending', 'confirmed', 'completed'
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     role: user?.role || "client",
@@ -156,12 +157,12 @@ export default function Dashboard() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, paymentStatus?: string) => {
     switch (status) {
+      case 'pending': 
+        return paymentStatus === 'paid' ? '待确认' : '待支付';
       case 'confirmed':
         return '已确认';
-      case 'pending':
-        return '待确认';
       case 'completed':
         return '已完成';
       case 'cancelled':
@@ -194,7 +195,33 @@ export default function Dashboard() {
     new Date(apt.appointmentDate) <= new Date() || apt.status === 'completed'
   );
 
-  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
+  const pendingAppointments = appointments.filter(apt => 
+    apt.status === 'pending' && apt.paymentStatus === 'paid'
+  );
+
+  // 添加待支付的预约过滤
+  const unpaidAppointments = appointments.filter(apt => 
+    apt.status === 'pending' && apt.paymentStatus !== 'paid'
+  );
+
+  // 根据过滤器筛选预约
+  const getFilteredAppointments = () => {
+    switch (appointmentFilter) {
+      case 'pending':
+        return pendingAppointments;
+      case 'confirmed':
+        return appointments.filter(apt => apt.status === 'confirmed');
+      case 'completed':
+        return appointments.filter(apt => apt.status === 'completed');
+      case 'unpaid':
+        return unpaidAppointments;
+      case 'all':
+      default:
+        return appointments;
+    }
+  };
+
+  const filteredAppointments = getFilteredAppointments();
 
   const handleSaveProfile = () => {
     updateUserMutation.mutate(editForm);
@@ -295,7 +322,13 @@ export default function Dashboard() {
               <div className="space-y-8">
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card>
+                  <Card 
+                    className={`cursor-pointer transition-all hover:shadow-md ${appointmentFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => {
+                      setAppointmentFilter('all');
+                      setActiveTab('appointments');
+                    }}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -311,7 +344,13 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card 
+                    className={`cursor-pointer transition-all hover:shadow-md ${appointmentFilter === 'pending' ? 'ring-2 ring-yellow-500' : ''}`}
+                    onClick={() => {
+                      setAppointmentFilter('pending');
+                      setActiveTab('appointments');
+                    }}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
@@ -327,7 +366,13 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card 
+                    className={`cursor-pointer transition-all hover:shadow-md ${appointmentFilter === 'completed' ? 'ring-2 ring-green-500' : ''}`}
+                    onClick={() => {
+                      setAppointmentFilter('completed');
+                      setActiveTab('appointments');
+                    }}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
@@ -413,7 +458,7 @@ export default function Dashboard() {
                               <div className="text-right">
                                 <Badge className={getStatusColor(appointment.status)}>
                                   {getStatusIcon(appointment.status)}
-                                  <span className="ml-1">{getStatusText(appointment.status)}</span>
+                                  <span className="ml-1">{getStatusText(appointment.status, appointment.paymentStatus)}</span>
                                 </Badge>
                                 {user?.role === 'therapist' && appointment.status === 'pending' && (
                                   <div className="flex space-x-2 mt-2">
@@ -460,84 +505,111 @@ export default function Dashboard() {
             {/* Appointments Tab */}
             {activeTab === 'appointments' && (
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>我的预约</CardTitle>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant={appointmentFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAppointmentFilter('all')}
+                    >
+                      全部 ({appointments.length})
+                    </Button>
+                    <Button
+                      variant={appointmentFilter === 'pending' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAppointmentFilter('pending')}
+                    >
+                      待确认 ({pendingAppointments.length})
+                    </Button>
+                    <Button
+                      variant={appointmentFilter === 'confirmed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAppointmentFilter('confirmed')}
+                    >
+                      已确认 ({appointments.filter(apt => apt.status === 'confirmed').length})
+                    </Button>
+                    <Button
+                      variant={appointmentFilter === 'completed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAppointmentFilter('completed')}
+                    >
+                      已完成 ({appointments.filter(apt => apt.status === 'completed').length})
+                    </Button>
+                    {unpaidAppointments.length > 0 && (
+                      <Button
+                        variant={appointmentFilter === 'unpaid' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setAppointmentFilter('unpaid')}
+                      >
+                        待支付 ({unpaidAppointments.length})
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="upcoming" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="upcoming">即将到来</TabsTrigger>
-                      <TabsTrigger value="pending">待处理</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="upcoming" className="space-y-4">
-                      {upcomingAppointments.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Calendar className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
-                          <p className="text-neutral-600">暂无即将到来的预约</p>
-                        </div>
-                      ) : (
-                        upcomingAppointments.map((appointment) => (
-                          <div key={appointment.id} className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4">
-                                <Avatar className="h-12 w-12">
-                                  <AvatarImage src={appointment.therapist.user.profileImageUrl || undefined} />
-                                  <AvatarFallback>
-                                    {getInitials(appointment.therapist.user.firstName, appointment.therapist.user.lastName)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-semibold text-neutral-900">
-                                    {appointment.therapist.user.firstName} {appointment.therapist.user.lastName}
-                                  </div>
-                                  <div className="text-sm text-neutral-600">
-                                    {new Date(appointment.appointmentDate).toLocaleString('zh-CN')}
-                                  </div>
-                                  <div className="text-sm text-neutral-600">
-                                    ¥{Number(appointment.price).toFixed(0)}
-                                  </div>
+                  <div className="space-y-4">
+                    {filteredAppointments.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Calendar className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                        <p className="text-neutral-600">
+                          {appointmentFilter === 'all' && '暂无预约记录'}
+                          {appointmentFilter === 'pending' && '暂无待确认预约'}
+                          {appointmentFilter === 'confirmed' && '暂无已确认预约'}
+                          {appointmentFilter === 'completed' && '暂无已完成预约'}
+                          {appointmentFilter === 'unpaid' && '暂无待支付预约'}
+                        </p>
+                      </div>
+                    ) : (
+                      filteredAppointments.map((appointment) => (
+                        <div key={appointment.id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={appointment.therapist.user.profileImageUrl || undefined} />
+                                <AvatarFallback>
+                                  {getInitials(appointment.therapist.user.firstName, appointment.therapist.user.lastName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-semibold text-neutral-900">
+                                  {appointment.therapist.user.firstName} {appointment.therapist.user.lastName}
+                                </div>
+                                <div className="text-sm text-neutral-600">
+                                  {new Date(appointment.appointmentDate).toLocaleString('zh-CN')}
+                                </div>
+                                <div className="text-sm text-neutral-600">
+                                  HK${Number(appointment.price).toFixed(0)} • {appointment.consultationType === 'online' ? '在线咨询' : '面对面咨询'}
                                 </div>
                               </div>
-                              <Badge className={getStatusColor(appointment.status)}>
-                                {getStatusText(appointment.status)}
-                              </Badge>
                             </div>
-                          </div>
-                        ))
-                      )}
-                    </TabsContent>
-                    
-                    <TabsContent value="pending" className="space-y-4">
-                      {pendingAppointments.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Clock className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
-                          <p className="text-neutral-600">暂无待处理的预约</p>
-                        </div>
-                      ) : (
-                        pendingAppointments.map((appointment) => (
-                          <div key={appointment.id} className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4">
-                                <Avatar className="h-12 w-12">
-                                  <AvatarImage src={appointment.therapist.user.profileImageUrl || undefined} />
-                                  <AvatarFallback>
-                                    {getInitials(appointment.therapist.user.firstName, appointment.therapist.user.lastName)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-semibold text-neutral-900">
-                                    {appointment.therapist.user.firstName} {appointment.therapist.user.lastName}
-                                  </div>
-                                  <div className="text-sm text-neutral-600">
-                                    {new Date(appointment.appointmentDate).toLocaleString('zh-CN')}
-                                  </div>
-                                </div>
-                              </div>
-                              {user?.role === 'therapist' && (
-                                <div className="flex space-x-2">
+                            <div className="text-right">
+                              <Badge className={getStatusColor(appointment.status)}>
+                                {getStatusText(appointment.status, appointment.paymentStatus)}
+                              </Badge>
+                              
+                              {/* 来访者重新支付按钮 - 待支付状态 */}
+                              {user?.role === 'client' && appointment.status === 'pending' && appointment.paymentStatus !== 'paid' && (
+                                <div className="mt-2">
                                   <Button 
-                                    size="sm"
+                                    size="sm" 
+                                    variant="default"
+                                    onClick={() => {
+                                      // 跳转到支付页面，携带预约ID
+                                      window.location.href = `/payment?appointmentId=${appointment.id}`;
+                                    }}
+                                  >
+                                    完成支付
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* 咨询师确认/拒绝按钮 - 已支付待确认状态 */}
+                              {user?.role === 'therapist' && appointment.status === 'pending' && appointment.paymentStatus === 'paid' && (
+                                <div className="flex space-x-2 mt-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
                                     onClick={() => updateAppointmentMutation.mutate({ 
                                       id: appointment.id, 
                                       status: 'confirmed' 
@@ -547,7 +619,7 @@ export default function Dashboard() {
                                   </Button>
                                   <Button 
                                     size="sm" 
-                                    variant="outline"
+                                    variant="destructive"
                                     onClick={() => updateAppointmentMutation.mutate({ 
                                       id: appointment.id, 
                                       status: 'cancelled' 
@@ -559,10 +631,10 @@ export default function Dashboard() {
                               )}
                             </div>
                           </div>
-                        ))
-                      )}
-                    </TabsContent>
-                  </Tabs>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -608,7 +680,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-right">
                               <Badge className={getStatusColor(appointment.status)}>
-                                {getStatusText(appointment.status)}
+                                {getStatusText(appointment.status, appointment.paymentStatus)}
                               </Badge>
                               {appointment.status === 'completed' && user?.role === 'client' && (
                                 <Button size="sm" variant="outline" className="mt-2">

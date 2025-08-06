@@ -1,3 +1,14 @@
+/**
+ * 数据存储层接口和实现
+ * 
+ * 提供了完整的数据访问层，包括：
+ * - 用户管理（认证必需）
+ * - 咨询师管理
+ * - 预约系统
+ * - 支付和收益管理
+ * - 评价系统
+ */
+
 import {
   users,
   therapists,
@@ -36,8 +47,12 @@ import {
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql, avg, count } from "drizzle-orm";
 
+/**
+ * 存储接口定义
+ * 定义了所有数据访问操作的标准接口
+ */
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // 用户操作（认证系统必需）
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
@@ -112,6 +127,7 @@ export interface IStorage {
   getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]>;
   createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
   updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest>;
+  updateWithdrawalByTransferId(transferId: string, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -143,29 +159,30 @@ export class DatabaseStorage implements IStorage {
     priceMin?: number;
     priceMax?: number;
   }): Promise<TherapistWithUser[]> {
-    let query = db
-      .select()
-      .from(therapists)
-      .innerJoin(users, eq(therapists.userId, users.id))
-      .where(eq(therapists.isVerified, true));
-
+    const conditions = [eq(therapists.isVerified, true)];
+    
     if (filters?.specialty) {
-      query = query.where(sql`${therapists.specialties} @> ${[filters.specialty]}`);
+      conditions.push(sql`${therapists.specialties} @> ${[filters.specialty]}`);
     }
 
     if (filters?.consultationType) {
-      query = query.where(sql`${therapists.consultationMethods} @> ${[filters.consultationType]}`);
+      conditions.push(sql`${therapists.consultationMethods} @> ${[filters.consultationType]}`);
     }
 
     if (filters?.priceMin) {
-      query = query.where(gte(therapists.hourlyRate, filters.priceMin.toString()));
+      conditions.push(gte(therapists.hourlyRate, filters.priceMin.toString()));
     }
 
     if (filters?.priceMax) {
-      query = query.where(lte(therapists.hourlyRate, filters.priceMax.toString()));
+      conditions.push(lte(therapists.hourlyRate, filters.priceMax.toString()));
     }
 
-    const results = await query.orderBy(desc(therapists.rating));
+    const results = await db
+      .select()
+      .from(therapists)
+      .innerJoin(users, eq(therapists.userId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(therapists.rating));
     
     return results.map(result => ({
       ...result.therapists,
@@ -253,7 +270,7 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<AppointmentWithDetails[]> {
-    let query = db
+    const baseQuery = db
       .select()
       .from(appointments)
       .innerJoin(users, eq(appointments.clientId, users.id))
@@ -281,11 +298,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(appointments.appointmentDate, filters.dateTo));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const results = await query.orderBy(desc(appointments.appointmentDate));
+    const results = conditions.length > 0 
+      ? await baseQuery.where(and(...conditions)).orderBy(desc(appointments.appointmentDate))
+      : await baseQuery.orderBy(desc(appointments.appointmentDate));
     
     return results.map(result => ({
       ...result.appointments,
@@ -332,17 +347,15 @@ export class DatabaseStorage implements IStorage {
 
   // Review operations
   async getReviews(therapistId?: number): Promise<ReviewWithDetails[]> {
-    let query = db
+    const baseQuery = db
       .select()
       .from(reviews)
       .innerJoin(users, eq(reviews.clientId, users.id))
       .innerJoin(therapists, eq(reviews.therapistId, therapists.id));
 
-    if (therapistId) {
-      query = query.where(eq(reviews.therapistId, therapistId));
-    }
-
-    const results = await query.orderBy(desc(reviews.createdAt));
+    const results = therapistId 
+      ? await baseQuery.where(eq(reviews.therapistId, therapistId)).orderBy(desc(reviews.createdAt))
+      : await baseQuery.orderBy(desc(reviews.createdAt));
     
     return results.map(result => ({
       ...result.reviews,
@@ -450,25 +463,25 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<TherapistEarnings[]> {
-    let query = db.select().from(therapistEarnings)
-      .where(eq(therapistEarnings.therapistId, therapistId));
+    let query;
 
+    const earningsConditions = [eq(therapistEarnings.therapistId, therapistId)];
+    
     if (filters?.status) {
-      query = query.where(and(
-        eq(therapistEarnings.therapistId, therapistId),
-        eq(therapistEarnings.status, filters.status)
-      ));
+      earningsConditions.push(eq(therapistEarnings.status, filters.status));
     }
 
     if (filters?.dateFrom && filters?.dateTo) {
-      query = query.where(and(
-        eq(therapistEarnings.therapistId, therapistId),
+      earningsConditions.push(
         gte(therapistEarnings.earnedAt, filters.dateFrom),
         lte(therapistEarnings.earnedAt, filters.dateTo)
-      ));
+      );
     }
 
-    return await query.orderBy(desc(therapistEarnings.earnedAt));
+    return await db.select()
+      .from(therapistEarnings)
+      .where(and(...earningsConditions))
+      .orderBy(desc(therapistEarnings.earnedAt));
   }
 
   async createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings> {
@@ -484,6 +497,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(therapistEarnings.id, id))
       .returning();
     return result;
+  }
+
+  async getTherapistEarningsByAppointment(appointmentId: number): Promise<TherapistEarnings | undefined> {
+    const [earning] = await db.select()
+      .from(therapistEarnings)
+      .where(eq(therapistEarnings.appointmentId, appointmentId));
+    return earning;
   }
 
   async getTherapistWalletSummary(therapistId: number): Promise<{
@@ -576,6 +596,14 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(withdrawalRequests)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(withdrawalRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  async updateWithdrawalByTransferId(transferId: string, updates: Partial<WithdrawalRequest>): Promise<WithdrawalRequest | undefined> {
+    const [result] = await db.update(withdrawalRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(withdrawalRequests.airwallexTransferId, transferId))
       .returning();
     return result;
   }

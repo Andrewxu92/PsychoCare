@@ -305,7 +305,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
         <div className="mb-6 p-4 bg-neutral-50 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium">支付金额</span>
-            <span className="text-2xl font-bold text-primary">¥{(amount / 100).toFixed(2)}</span>
+            <span className="text-2xl font-bold text-primary">HK${(amount / 100).toFixed(2)}</span>
           </div>
         </div>
 
@@ -432,21 +432,7 @@ export default function PaymentForm({ amount, appointmentData, onPaymentSuccess,
               </label>
             </div>
 
-            {/* Payment Button */}
-            <Button
-              onClick={handlePayment}
-              disabled={!acceptedTerms || isProcessing || isLoading}
-              className="w-full py-3 text-lg"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  正在处理支付...
-                </>
-              ) : (
-                `确认支付 ¥${(amount / 100).toFixed(2)}`
-              )}
-            </Button>
+
 
             {/* Development info */}
             {import.meta.env.NODE_ENV === 'development' && (

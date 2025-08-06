@@ -1,3 +1,13 @@
+/**
+ * 导航栏组件
+ * 
+ * 功能特性：
+ * - 响应式设计，支持移动端和桌面端
+ * - 根据用户角色显示不同菜单项
+ * - 自动识别咨询师身份
+ * - 用户头像和下拉菜单
+ */
+
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";

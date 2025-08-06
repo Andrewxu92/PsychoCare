@@ -111,8 +111,21 @@ export default function AirwallexBeneficiaryForm({
 
         // Create beneficiary form element
         const element = await createElement("beneficiaryForm", {
+          defaultValues: {
+            beneficiary: {
+              entity_type: "PERSONAL",
+              bank_details: {
+                account_currency: "HKD",
+                bank_country_code: "HK",
+                local_clearing_system: "FPS",
+              },
+            },
+            payment_methods: ["LOCAL"],
+          },
           customizations: {
             minHeight: 500,
+            // Add more customizations as needed 隐藏conditions
+            layout: [{ name: "conditions", hidden: true }],
           },
         });
 
@@ -221,13 +234,19 @@ export default function AirwallexBeneficiaryForm({
           title: "正在绑定账户...",
           description: "请稍候，正在处理您的收款账户信息",
         });
-        
+
         const result = await elementRef.current.submit();
         console.log("Beneficiary form submit result:", result);
-        console.log("Airwallex SDK raw result:", JSON.stringify(result, null, 2));
+        console.log(
+          "Airwallex SDK raw result:",
+          JSON.stringify(result, null, 2),
+        );
         console.log("Result type:", typeof result);
-        console.log("Result keys:", result ? Object.keys(result) : 'null/undefined');
-        
+        console.log(
+          "Result keys:",
+          result ? Object.keys(result) : "null/undefined",
+        );
+
         // 调用 onSuccess 回调，传递 Airwallex 返回的数据
         onSuccess(result);
       } catch (err) {
@@ -292,11 +311,7 @@ export default function AirwallexBeneficiaryForm({
         />
 
         {isFormLoaded && (
-          <Button 
-            onClick={handleNext} 
-            className="mt-4"
-            disabled={isSubmitting}
-          >
+          <Button onClick={handleNext} className="mt-4" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

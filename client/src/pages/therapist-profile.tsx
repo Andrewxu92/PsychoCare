@@ -154,7 +154,7 @@ export default function TherapistProfile() {
                   </Link>
                   <div className="text-center sm:text-left">
                     <div className="text-2xl font-bold text-primary">
-                      ¥{Number(therapist.hourlyRate).toFixed(0)}
+                      HK${Number(therapist.hourlyRate).toFixed(0)}
                     </div>
                     <div className="text-sm text-neutral-600">每次咨询</div>
                   </div>

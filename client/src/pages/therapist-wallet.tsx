@@ -27,20 +27,57 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowDownToLine,
+  Loader2,
+  ArrowLeft
 } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
-// Form schemas - Updated to match database schema
+// Form schemas - Updated to support manual Airwallex wallet entry
 const beneficiaryFormSchema = z.object({
-  accountType: z.string(),
+  accountType: z.string().min(1, "请选择账户类型"),
   bankName: z.string().optional(),
-  accountNumber: z.string().min(1, "账户号码是必填项"),
+  accountNumber: z.string().optional(),
   accountHolderName: z.string().min(1, "账户持有人姓名是必填项"),
-  currency: z.string().default("USD"),
-  airwallexBeneficiaryId: z.string().min(1, "Airwallex受益人ID是必填项"),
-  isDefault: z.boolean().default(false)
+  walletId: z.string().optional(),
+  walletEmail: z.string().optional(),
+  currency: z.string().default("HKD"),
+  airwallexBeneficiaryId: z.string().optional(),
+  isDefault: z.boolean().default(false),
+  // Bank routing information
+  accountRoutingType1: z.string().optional(),
+  accountRoutingValue1: z.string().optional(),
+  accountRoutingType2: z.string().optional(),
+  accountRoutingValue2: z.string().optional()
+}).superRefine((data, ctx) => {
+  // Validate based on account type
+  if (data.accountType === "airwallex") {
+    if (!data.walletId && !data.walletEmail) {
+      ctx.addIssue({
+        code: "custom",
+        message: "请填写钱包ID或注册邮箱",
+        path: ["walletId"]
+      });
+    }
+    if (data.walletEmail && !z.string().email().safeParse(data.walletEmail).success) {
+      ctx.addIssue({
+        code: "custom", 
+        message: "请输入有效的邮箱地址",
+        path: ["walletEmail"]
+      });
+    }
+  } else {
+    if (!data.accountNumber) {
+      ctx.addIssue({
+        code: "custom",
+        message: "请填写账户号码",
+        path: ["accountNumber"]
+      });
+    }
+  }
 });
 
 const withdrawalFormSchema = z.object({
@@ -63,6 +100,7 @@ export default function TherapistWallet() {
   const [showAirwallexForm, setShowAirwallexForm] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any>(null);
   const [beneficiaryDetailsOpen, setBeneficiaryDetailsOpen] = useState(false);
+  const [isBindingInProgress, setIsBindingInProgress] = useState(false);
   const [, setLocation] = useLocation();
 
   // Get therapist ID (assuming user is authenticated as therapist)
@@ -98,10 +136,41 @@ export default function TherapistWallet() {
   });
 
   // Withdrawals query
-  const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery<any[]>({
+  const { data: withdrawals, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useQuery<any[]>({
     queryKey: [`/api/therapists/${therapistId}/withdrawals`],
     enabled: !!therapistId
   });
+
+  // Auto-refresh for processing withdrawals (limited to 30 seconds)
+  useEffect(() => {
+    if (!withdrawals) return;
+    
+    const hasProcessingWithdrawals = withdrawals.some((w: any) => w.status === 'processing');
+    
+    if (hasProcessingWithdrawals) {
+      const startTime = Date.now();
+      const MAX_POLLING_TIME = 30000; // 30 seconds
+      let attemptCount = 0;
+      const MAX_ATTEMPTS = 10;
+      
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        attemptCount++;
+        
+        // Stop polling after 30 seconds or 10 attempts
+        if (elapsed >= MAX_POLLING_TIME || attemptCount >= MAX_ATTEMPTS) {
+          console.log(`Frontend polling stopped after ${Math.round(elapsed/1000)}s (${attemptCount} attempts)`);
+          clearInterval(interval);
+          return;
+        }
+        
+        console.log(`Frontend polling attempt ${attemptCount}/${MAX_ATTEMPTS} (${Math.round(elapsed/1000)}s elapsed)`);
+        refetchWithdrawals();
+      }, 3000); // Refresh every 3 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [withdrawals, refetchWithdrawals]);
 
   // Forms
   const beneficiaryForm = useForm<BeneficiaryFormData>({
@@ -113,8 +182,15 @@ export default function TherapistWallet() {
   });
 
   const withdrawalForm = useForm<WithdrawalFormData>({
-    resolver: zodResolver(withdrawalFormSchema)
+    resolver: zodResolver(withdrawalFormSchema),
+    defaultValues: {
+      amount: 0,
+      beneficiaryId: undefined,
+      notes: ""
+    }
   });
+
+
 
   // Mutations
   const createBeneficiaryMutation = useMutation({
@@ -130,17 +206,43 @@ export default function TherapistWallet() {
       setBeneficiaryDialogOpen(false);
       beneficiaryForm.reset();
       setShowAirwallexForm(false);
+      setIsBindingInProgress(false);
       toast({ 
         title: "收款账户绑定成功",
         description: "您的收款账户已成功添加到系统中"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Add beneficiary error:', error);
       setShowAirwallexForm(false);
+      setIsBindingInProgress(false);
+      
+      // Extract error message from server response
+      let errorMessage = "请检查输入信息或重试";
+      let errorTitle = "绑定失败";
+      
+      if (error?.message) {
+        // Check if it's a server response with structured error
+        const match = error.message.match(/^400: (.+)/);
+        if (match) {
+          try {
+            const errorData = JSON.parse(match[1]);
+            if (errorData.message) {
+              errorTitle = errorData.message;
+              errorMessage = errorData.details || "请检查表单信息并填写正确的值";
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use the original error message
+            errorMessage = match[1];
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({ 
-        title: "绑定失败", 
-        description: "请检查输入信息或重试", 
+        title: errorTitle, 
+        description: errorMessage, 
         variant: "destructive" 
       });
     }
@@ -164,21 +266,41 @@ export default function TherapistWallet() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/withdrawals`] });
       queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/wallet/summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/therapists/${therapistId}/earnings`] });
       setWithdrawalDialogOpen(false);
       withdrawalForm.reset();
-      toast({ title: "提现申请已提交" });
+      toast({ 
+        title: "提现申请已提交",
+        description: "您的提现申请已成功提交，我们会尽快处理" 
+      });
     },
-    onError: () => {
-      toast({ title: "提现申请失败", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Withdrawal error:', error);
+      const errorMessage = error.message || "请稍后重试";
+      toast({ 
+        title: "提现失败", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
   const onBeneficiarySubmit = (data: BeneficiaryFormData) => {
-    console.log('onBeneficiarySubmit', data);
+    console.log('onBeneficiarySubmit called with data:', data);
+    console.log('Form errors:', beneficiaryForm.formState.errors);
     console.log('therapistId in onBeneficiarySubmit:', therapistId);
-    console.log('createBeneficiaryMutation:', createBeneficiaryMutation);
+    
+    if (!therapistId) {
+      toast({
+        title: "错误",
+        description: "无法获取治疗师ID",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     createBeneficiaryMutation.mutate(data);
-    console.log('mutate called');
+    console.log('Mutation called with data:', data);
   };
 
   const onWithdrawalSubmit = (data: WithdrawalFormData) => {
@@ -189,10 +311,13 @@ export default function TherapistWallet() {
     console.log('Beneficiary form submit result:', beneficiaryData);
     console.log('Airwallex SDK raw result:', JSON.stringify(beneficiaryData, null, 2));
     
+    // Show binding progress overlay
+    setIsBindingInProgress(true);
+    setShowAirwallexForm(false);
+    
     // Send complete Airwallex SDK result to API
     console.log('Sending complete Airwallex data to API:', beneficiaryData);
     createBeneficiaryMutation.mutate(beneficiaryData);
-    setShowAirwallexForm(false);
   };
 
   const toggleAccountVisibility = (id: number) => {
@@ -265,8 +390,21 @@ export default function TherapistWallet() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">钱包管理</h1>
-          <p className="text-gray-600">管理您的收入、提现和收款账户</p>
+          <div className="flex items-center gap-4 mb-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.history.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">钱包管理</h1>
+              <p className="text-gray-600">管理您的收入、提现和收款账户</p>
+            </div>
+          </div>
         </div>
 
         {/* Wallet Summary Cards */}
@@ -278,7 +416,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.totalEarnings || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.totalEarnings || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -290,8 +428,17 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.availableBalance || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.availableBalance || 0).toLocaleString()}
               </div>
+              <Button 
+                onClick={() => setWithdrawalDialogOpen(true)} 
+                className="w-full mt-3"
+                size="sm"
+                disabled={!walletSummary?.availableBalance || walletSummary.availableBalance <= 0}
+              >
+                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                申请提现
+              </Button>
             </CardContent>
           </Card>
 
@@ -302,7 +449,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-500">
-                ¥{summaryLoading ? "..." : (walletSummary?.pendingAmount || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.pendingAmount || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -314,7 +461,7 @@ export default function TherapistWallet() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-600">
-                ¥{summaryLoading ? "..." : (walletSummary?.withdrawnAmount || 0).toLocaleString()}
+                HK${summaryLoading ? "..." : (walletSummary?.withdrawnAmount || 0).toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -354,8 +501,8 @@ export default function TherapistWallet() {
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="font-bold text-green-600">¥{earning.netAmount}</p>
-                          <p className="text-xs text-gray-500">手续费: ¥{earning.platformFee}</p>
+                          <p className="font-bold text-green-600">HK${earning.netAmount}</p>
+                          <p className="text-xs text-gray-500">手续费: HK${earning.commission}</p>
                         </div>
                         <div className="text-right">
                           {getStatusBadge(earning.status)}
@@ -427,6 +574,7 @@ export default function TherapistWallet() {
                                   <SelectItem value="bank">银行账户</SelectItem>
                                   <SelectItem value="alipay">支付宝</SelectItem>
                                   <SelectItem value="wechat_pay">微信支付</SelectItem>
+                                  <SelectItem value="airwallex">Airwallex钱包</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -450,19 +598,60 @@ export default function TherapistWallet() {
                           />
                         )}
 
-                        <FormField
-                          control={beneficiaryForm.control}
-                          name="accountNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>账户号码</FormLabel>
-                              <FormControl>
-                                <Input placeholder="请输入账户号码" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {beneficiaryForm.watch("accountType") === "airwallex" && (
+                          <div className="space-y-4">
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="walletId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Airwallex钱包ID</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="请输入您的Airwallex钱包ID" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={beneficiaryForm.control}
+                              name="walletEmail"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Airwallex注册邮箱</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="请输入Airwallex注册邮箱" type="email" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+
+                        {beneficiaryForm.watch("accountType") !== "airwallex" && (
+                          <FormField
+                            control={beneficiaryForm.control}
+                            name="accountNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {beneficiaryForm.watch("accountType") === "bank" ? "账户号码" : 
+                                   beneficiaryForm.watch("accountType") === "alipay" ? "支付宝账号" : 
+                                   "微信号"}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input placeholder={
+                                    beneficiaryForm.watch("accountType") === "bank" ? "请输入银行账户号码" : 
+                                    beneficiaryForm.watch("accountType") === "alipay" ? "请输入支付宝账号" : 
+                                    "请输入微信号"
+                                  } {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         <FormField
                           control={beneficiaryForm.control}
@@ -477,6 +666,90 @@ export default function TherapistWallet() {
                             </FormItem>
                           )}
                         />
+
+                        {beneficiaryForm.watch("accountType") === "bank" && (
+                          <div className="space-y-4 border rounded-lg p-4 bg-gray-50">
+                            <div className="text-sm font-medium text-gray-700">银行路由信息 (可选)</div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型1</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue1"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值1</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingType2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由类型2</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="选择路由类型" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="swift">SWIFT代码</SelectItem>
+                                        <SelectItem value="iban">IBAN</SelectItem>
+                                        <SelectItem value="aba">ABA路由号</SelectItem>
+                                        <SelectItem value="sort_code">排序代码</SelectItem>
+                                        <SelectItem value="bsb">BSB代码</SelectItem>
+                                        <SelectItem value="ifsc">IFSC代码</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={beneficiaryForm.control}
+                                name="accountRoutingValue2"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>路由值2</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="请输入路由值" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        )}
 
                             <div className="flex justify-end space-x-2">
                               <Button type="button" variant="outline" onClick={() => setBeneficiaryDialogOpen(false)}>
@@ -507,6 +780,8 @@ export default function TherapistWallet() {
                           <div className="flex-shrink-0">
                             {beneficiary.accountType === "bank" ? (
                               <Building2 className="h-8 w-8 text-blue-600" />
+                            ) : beneficiary.accountType === "airwallex" ? (
+                              <Wallet className="h-8 w-8 text-purple-600" />
                             ) : (
                               <CreditCard className="h-8 w-8 text-green-600" />
                             )}
@@ -524,10 +799,16 @@ export default function TherapistWallet() {
                             </div>
                             <div className="flex items-center space-x-2">
                               <p className="text-sm text-gray-600">
-                                {showAccountNumbers[beneficiary.id] 
-                                  ? beneficiary.accountNumber 
-                                  : maskAccountNumber(beneficiary.accountNumber)
-                                }
+                                {beneficiary.accountType === "airwallex" ? (
+                                  beneficiary.walletEmail || beneficiary.walletId || "Airwallex钱包"
+                                ) : beneficiary.accountNumber ? (
+                                  showAccountNumbers[beneficiary.id] 
+                                    ? beneficiary.accountNumber 
+                                    : maskAccountNumber(beneficiary.accountNumber)
+                                ) : (
+                                  // 如果没有账户号码，显示路由信息作为标识
+                                  beneficiary.accountRoutingValue1 || '收款账户'
+                                )}
                               </p>
                               <Button
                                 variant="ghost"
@@ -602,11 +883,19 @@ export default function TherapistWallet() {
                     <DialogHeader>
                       <DialogTitle>申请提现</DialogTitle>
                       <DialogDescription>
-                        可提现余额: ¥{walletSummary?.availableBalance || 0}
+                        申请将您的可用余额提现到指定收款账户
                       </DialogDescription>
                     </DialogHeader>
                     <Form {...withdrawalForm}>
                       <form onSubmit={withdrawalForm.handleSubmit(onWithdrawalSubmit)} className="space-y-4">
+                        {/* 可提现余额提示 */}
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-gray-600">可提现余额</div>
+                          <div className="text-xl font-semibold text-blue-600">
+                            HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                          </div>
+                        </div>
+
                         <FormField
                           control={withdrawalForm.control}
                           name="amount"
@@ -614,14 +903,23 @@ export default function TherapistWallet() {
                             <FormItem>
                               <FormLabel>提现金额</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="number" 
-                                  placeholder="请输入提现金额" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">HK$</span>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="0.00"
+                                    className="pl-8"
+                                    max={walletSummary?.availableBalance || 0}
+                                    step="0.01"
+                                    {...field}
+                                    onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                                  />
+                                </div>
                               </FormControl>
                               <FormMessage />
+                              <div className="text-xs text-gray-500">
+                                最大可提现金额: HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                              </div>
                             </FormItem>
                           )}
                         />
@@ -631,22 +929,44 @@ export default function TherapistWallet() {
                           name="beneficiaryId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>收款账户</FormLabel>
+                              <FormLabel>选择收款账户</FormLabel>
                               <Select onValueChange={(value) => field.onChange(Number(value))}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="选择收款账户" />
+                                    <SelectValue placeholder="请选择收款账户" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                   {beneficiaries?.map((beneficiary: any) => (
                                     <SelectItem key={beneficiary.id} value={beneficiary.id.toString()}>
-                                      {beneficiary.accountName} ({maskAccountNumber(beneficiary.accountNumber)})
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-lg">
+                                          {beneficiary.currency === 'USD' ? '🇺🇸' :
+                                           beneficiary.currency === 'HKD' ? '🇭🇰' :
+                                           beneficiary.currency === 'CNY' ? '🇨🇳' :
+                                           beneficiary.currency === 'EUR' ? '🇪🇺' :
+                                           beneficiary.currency === 'GBP' ? '🇬🇧' :
+                                           beneficiary.currency === 'SGD' ? '🇸🇬' :
+                                           beneficiary.currency === 'AUD' ? '🇦🇺' :
+                                           beneficiary.currency === 'JPY' ? '🇯🇵' : '💳'}
+                                        </span>
+                                        <div>
+                                          <div className="font-medium">{beneficiary.accountHolderName}</div>
+                                          <div className="text-sm text-gray-500">
+                                            {beneficiary.accountType === 'airwallex' 
+                                              ? (beneficiary.walletEmail || beneficiary.walletId || 'Airwallex钱包')
+                                              : maskAccountNumber(beneficiary.accountNumber)}
+                                          </div>
+                                        </div>
+                                      </div>
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
+                              {!beneficiaries?.length && (
+                                <p className="text-sm text-orange-600">请先添加收款账户</p>
+                              )}
                             </FormItem>
                           )}
                         />
@@ -665,12 +985,22 @@ export default function TherapistWallet() {
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end space-x-2 pt-4">
                           <Button type="button" variant="outline" onClick={() => setWithdrawalDialogOpen(false)}>
                             取消
                           </Button>
-                          <Button type="submit" disabled={createWithdrawalMutation.isPending}>
-                            {createWithdrawalMutation.isPending ? "提交中..." : "提交申请"}
+                          <Button 
+                            type="submit" 
+                            disabled={createWithdrawalMutation.isPending || !beneficiaries?.length || !walletSummary?.availableBalance}
+                          >
+                            {createWithdrawalMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                提交中...
+                              </>
+                            ) : (
+                              "提交申请"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -699,7 +1029,7 @@ export default function TherapistWallet() {
                           )}
                         </div>
                         <div className="text-center">
-                          <p className="font-bold text-red-600">-¥{withdrawal.amount}</p>
+                          <p className="font-bold text-red-600">-HK${withdrawal.amount}</p>
                         </div>
                         <div className="text-right">
                           {getStatusBadge(withdrawal.status)}
@@ -740,37 +1070,74 @@ export default function TherapistWallet() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>收款账户详细信息</DialogTitle>
+              <DialogDescription>
+                查看您添加的收款账户的详细信息
+              </DialogDescription>
             </DialogHeader>
             {selectedBeneficiary && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">账户持有人</label>
+                    <div className="text-sm font-medium text-gray-700">账户持有人</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountHolderName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">账户类型</label>
+                    <div className="text-sm font-medium text-gray-700">账户类型</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountType}</p>
                   </div>
+                  {selectedBeneficiary.accountType === 'airwallex' ? (
+                    <>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Airwallex钱包ID</div>
+                        <p className="mt-1 text-sm text-gray-900 font-mono">{selectedBeneficiary.walletId || '未提供'}</p>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Airwallex注册邮箱</div>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.walletEmail || '未提供'}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">账户号码</div>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">银行名称</div>
+                        <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
+                      </div>
+                      {(selectedBeneficiary.accountRoutingType1 || selectedBeneficiary.accountRoutingType2) && (
+                        <div className="col-span-2">
+                          <div className="text-sm font-medium text-gray-700 mb-2">银行路由信息</div>
+                          <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                            {selectedBeneficiary.accountRoutingType1 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType1.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue1}</p>
+                              </div>
+                            )}
+                            {selectedBeneficiary.accountRoutingType2 && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-600">{selectedBeneficiary.accountRoutingType2.toUpperCase()}</div>
+                                <p className="text-sm text-gray-900 font-mono">{selectedBeneficiary.accountRoutingValue2}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div>
-                    <label className="text-sm font-medium text-gray-700">账户号码</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.accountNumber}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">银行名称</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.bankName || '未提供'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">货币</label>
+                    <div className="text-sm font-medium text-gray-700">货币</div>
                     <p className="mt-1 text-sm text-gray-900">{selectedBeneficiary.currency}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Airwallex ID</label>
+                    <div className="text-sm font-medium text-gray-700">Airwallex ID</div>
                     <p className="mt-1 text-sm text-gray-900 font-mono text-xs">{selectedBeneficiary.airwallexBeneficiaryId}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">状态</label>
-                    <p className="mt-1">
+                    <div className="text-sm font-medium text-gray-700">状态</div>
+                    <div className="mt-1">
                       {selectedBeneficiary.isActive ? (
                         <Badge variant="default" className="bg-green-100 text-green-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
@@ -782,10 +1149,10 @@ export default function TherapistWallet() {
                           非活跃
                         </Badge>
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">创建时间</label>
+                    <div className="text-sm font-medium text-gray-700">创建时间</div>
                     <p className="mt-1 text-sm text-gray-900">
                       {selectedBeneficiary.createdAt 
                         ? format(new Date(selectedBeneficiary.createdAt), "yyyy-MM-dd HH:mm")
@@ -812,6 +1179,21 @@ export default function TherapistWallet() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Binding Progress Overlay */}
+        {isBindingInProgress && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center shadow-xl">
+              <div className="flex items-center justify-center mb-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">正在绑定收款账户</h3>
+              <p className="text-gray-600 text-sm">
+                正在将您的银行账户信息保存到系统中，请稍候...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
