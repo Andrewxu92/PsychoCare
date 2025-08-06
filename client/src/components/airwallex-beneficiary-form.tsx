@@ -124,6 +124,8 @@ export default function AirwallexBeneficiaryForm({
           },
           customizations: {
             minHeight: 500,
+            // Add more customizations as needed 隐藏conditions
+            layout: [{ name: "conditions", hidden: true }],
           },
         });
 
