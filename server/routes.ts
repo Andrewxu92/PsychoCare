@@ -1383,7 +1383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Update withdrawal status to completed
           await storage.updateWithdrawalByTransferId(transferId, {
             status: 'completed',
-            completedAt: new Date()
+            processedAt: new Date()
           });
           console.log(`Transfer ${transferId} completed successfully!`);
           return;
@@ -1429,7 +1429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (transferData.status === 'PAID') {
           await storage.updateWithdrawalByTransferId(transferId, {
             status: 'completed',
-            completedAt: new Date()
+            processedAt: new Date()
           });
           res.json({ message: "Transfer completed and updated", status: transferData.status });
         } else if (transferData.status === 'FAILED' || transferData.status === 'CANCELLED') {
