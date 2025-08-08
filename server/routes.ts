@@ -1322,6 +1322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               type: "DIGITAL_WALLET"
             },
             currency: "HKD", // Add required currency field at top level
+            fee_paid_by:"payer",
             metadata: {
               therapist_id: therapistId.toString(),
               withdrawal_id: Date.now().toString()
@@ -1373,6 +1374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 "transfer_method": "LOCAL",
                 "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
                 "reason": "business_expenses",
+                "fee_paid_by":"payer",
                 "source_currency": "HKD",
                 "transfer_currency": beneficiary.currency || "HKD",
                 "beneficiary": rawData.values?.beneficiary || rawData.beneficiary || rawData, // Use beneficiary from values object
