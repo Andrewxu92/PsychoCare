@@ -1306,9 +1306,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let withdrawalStatus = "pending";
       let airwallexTransferId = null;
 
-      // If withdrawing to Airwallex wallet, process the transfer via Airwallex API
+      // Process transfer via Airwallex API for both wallet and bank accounts
       if (beneficiary.accountType === 'airwallex') {
-        console.log('Processing Airwallex withdrawal for beneficiary:', beneficiary);
+        console.log('Processing Airwallex wallet withdrawal for beneficiary:', beneficiary);
         try {
           // Create transfer request to Airwallex using the reusable function
           const transferData = {
@@ -1339,7 +1339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             method: 'POST',
             body: JSON.stringify(transferData)
           });
-           console.log('Airwallex transfer request body:', JSON.stringify(transferData));
+           console.log('Airwallex wallet transfer request body:', JSON.stringify(transferData));
           if (transferResponse.ok) {
             const transferResult = await transferResponse.json();
             airwallexTransferId = transferResult.id;
@@ -1347,14 +1347,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Transfer failed: ${transferResponse.status}`);
           }
           withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
-          console.log('Airwallex transfer created successfully with ID:', airwallexTransferId);
+          console.log('Airwallex wallet transfer created successfully with ID:', airwallexTransferId);
           
           // Start polling for transfer status
           if (airwallexTransferId) {
             pollTransferStatus(airwallexTransferId);
           }
         } catch (error) {
-          console.error('Error processing Airwallex transfer:', error);
+          console.error('Error processing Airwallex wallet transfer:', error);
+          withdrawalStatus = "failed";
+        }
+      } else if (beneficiary.accountType === 'bank') {
+        console.log('Processing Airwallex bank transfer for beneficiary:', beneficiary);
+        try {
+          // Build bank transfer request body for Airwallex
+          const transferData = {
+            "transfer_method": "LOCAL",
+            "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
+            "reason": "business_expenses",
+            "source_currency": "HKD",
+            "transfer_currency": beneficiary.currency || "HKD",
+            "beneficiary": {
+              "address": {
+                "country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US', // Default based on currency
+                "street_address": "Room 1420, 14/F, Radio City, 505-511 Hennessy Road, Causeway Bay, Hong Kong",
+                "city": beneficiary.currency === 'HKD' ? 'Hong Kong' : 'New York'
+              },
+              "entity_type": "PERSONAL", // Default to personal
+              "bank_details": {
+                "bank_country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US',
+                "account_currency": beneficiary.currency || "HKD",
+                "account_name": beneficiary.accountHolderName,
+                ...(beneficiary.accountNumber && { "account_number": beneficiary.accountNumber }),
+                ...(beneficiary.accountRoutingType1 && { "account_routing_type1": beneficiary.accountRoutingType1 }),
+                ...(beneficiary.accountRoutingValue1 && { "account_routing_value1": beneficiary.accountRoutingValue1 }),
+                ...(beneficiary.accountRoutingType2 && { "account_routing_type2": beneficiary.accountRoutingType2 }),
+                ...(beneficiary.accountRoutingValue2 && { "account_routing_value2": beneficiary.accountRoutingValue2 }),
+                ...(beneficiary.currency === 'HKD' && { "local_clearing_system": "FPS" })
+              },
+              ...(beneficiary.bankName && { "company_name": beneficiary.bankName })
+            },
+            "source_amount": amount.toFixed(2),
+            "request_id": `${Date.now()}-${beneficiary.currency || 'HKD'}-${Math.random().toString(36).substr(2, 6)}`
+          };
+
+          console.log('Airwallex bank transfer request body:', JSON.stringify(transferData, null, 2));
+          
+          const transferResponse = await makeAirwallexRequest('/api/v1/transfers/create', {
+            method: 'POST',
+            body: JSON.stringify(transferData)
+          });
+          
+          if (transferResponse.ok) {
+            const transferResult = await transferResponse.json();
+            airwallexTransferId = transferResult.id;
+            withdrawalStatus = "processing"; // Set to processing if Airwallex transfer initiated
+            console.log('Airwallex bank transfer created successfully with ID:', airwallexTransferId);
+            
+            // Start polling for transfer status
+            if (airwallexTransferId) {
+              pollTransferStatus(airwallexTransferId);
+            }
+          } else {
+            const errorData = await transferResponse.text();
+            console.error('Airwallex bank transfer failed:', errorData);
+            throw new Error(`Bank transfer failed: ${transferResponse.status} - ${errorData}`);
+          }
+        } catch (error) {
+          console.error('Error processing Airwallex bank transfer:', error);
           withdrawalStatus = "failed";
         }
       }
