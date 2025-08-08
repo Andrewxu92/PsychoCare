@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import Navigation from "@/components/navigation";
 import PaymentForm from "@/components/payment-form-simple";
 import PaymentStatusMonitor from "@/components/payment-status-monitor";
@@ -12,7 +12,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Video, Users, ArrowLeft, AlertCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Calendar, Clock, Video, Users, ArrowLeft, AlertCircle, X } from "lucide-react";
 import type { AppointmentWithDetails } from "@shared/schema";
 
 /**
@@ -31,6 +42,31 @@ export default function Payment() {
   // 组件状态
   const [paymentIntentId, setPaymentIntentId] = useState<string>(''); // Airwallex支付意图ID
   const [isProcessing, setIsProcessing] = useState(false); // 是否正在处理支付
+
+  // 取消预约的mutation
+  const cancelAppointmentMutation = useMutation({
+    mutationFn: async (appointmentId: number) => {
+      const response = await apiRequest('POST', `/api/appointments/${appointmentId}/cancel`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      toast({
+        title: "预约已取消",
+        description: "您的预约已成功取消。",
+      });
+      setLocation('/dashboard');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "取消失败",
+        description: error.message.includes('无法取消已支付') 
+          ? "无法取消已支付的预约"
+          : "取消预约时出现错误，请稍后重试。",
+        variant: "destructive",
+      });
+    },
+  });
 
   // 获取预约详情
   const { data: appointment, isLoading: appointmentLoading } = useQuery<AppointmentWithDetails>({
@@ -157,8 +193,39 @@ export default function Payment() {
           {/* 左侧：预约详情 */}
           <div className="space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>预约详情</CardTitle>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      disabled={cancelAppointmentMutation.isPending}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      取消预约
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认取消预约</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        您确定要取消此预约吗？取消后将无法恢复，您需要重新预约咨询师。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>暂不取消</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => cancelAppointmentMutation.mutate(appointment.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                        disabled={cancelAppointmentMutation.isPending}
+                      >
+                        {cancelAppointmentMutation.isPending ? "取消中..." : "确认取消"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 咨询师信息 */}

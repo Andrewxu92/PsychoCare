@@ -394,6 +394,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cancel appointment (specific endpoint for better UX)
+  app.post('/api/appointments/:id/cancel', customAuth, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const appointment = await storage.getAppointmentById(id);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Only clients can cancel their own appointments
+      if (appointment.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Only allow cancelling pending payment appointments
+      if (appointment.paymentStatus === 'paid') {
+        return res.status(400).json({ message: "无法取消已支付的预约" });
+      }
+
+      if (appointment.status === 'cancelled') {
+        return res.status(400).json({ message: "预约已被取消" });
+      }
+
+      // Update appointment status to cancelled
+      const updatedAppointment = await storage.updateAppointment(id, {
+        status: 'cancelled'
+      });
+
+      res.json({
+        success: true,
+        message: "预约已取消",
+        appointment: updatedAppointment
+      });
+    } catch (error) {
+      console.error("Error cancelling appointment:", error);
+      res.status(500).json({ message: "Failed to cancel appointment" });
+    }
+  });
+
   app.put('/api/appointments/:id', customAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
