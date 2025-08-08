@@ -1360,35 +1360,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (beneficiary.accountType === 'bank') {
         console.log('Processing Airwallex bank transfer for beneficiary:', beneficiary);
         try {
-          // Build bank transfer request body for Airwallex
-          const transferData = {
-            "transfer_method": "LOCAL",
-            "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
-            "reason": "business_expenses",
-            "source_currency": "HKD",
-            "transfer_currency": beneficiary.currency || "HKD",
-            "beneficiary": {
-              "address": {
-                "country_code": 'HK',
-                "city": 'Hong Kong',
+          // Use airwallex_raw_data for bank transfer if available
+          let transferData;
+          
+          if (beneficiary.airwallexRawData) {
+            try {
+              const rawData = JSON.parse(beneficiary.airwallexRawData);
+              console.log('Using airwallex_raw_data for bank transfer:', rawData);
+              
+              // Build transfer request using the values object from airwallex_raw_data
+              transferData = {
+                "transfer_method": "LOCAL",
+                "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
+                "reason": "business_expenses",
+                "source_currency": "HKD",
+                "transfer_currency": beneficiary.currency || "HKD",
+                "beneficiary": rawData.values || rawData, // Use values object if available, fallback to root
+                "source_amount": amount.toFixed(2),
+                "request_id": `${Date.now()}-${beneficiary.currency || 'HKD'}-${Math.random().toString(36).substr(2, 6)}`
+              };
+            } catch (parseError) {
+              console.error('Error parsing airwallex_raw_data:', parseError);
+              throw new Error('Invalid airwallex_raw_data format');
+            }
+          } else {
+            // Fallback to manual construction if no airwallex_raw_data
+            console.log('No airwallex_raw_data found, using manual construction');
+            transferData = {
+              "transfer_method": "LOCAL",
+              "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
+              "reason": "business_expenses",
+              "source_currency": "HKD",
+              "transfer_currency": beneficiary.currency || "HKD",
+              "beneficiary": {
+                "address": {
+                  "country_code": 'HK',
+                  "city": 'Hong Kong',
+                },
+                "entity_type": "PERSONAL",
+                "bank_details": {
+                  "bank_country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US',
+                  "account_currency": beneficiary.currency || "HKD",
+                  "account_name": beneficiary.accountHolderName,
+                  ...(beneficiary.accountNumber && { "account_number": beneficiary.accountNumber }),
+                  ...(beneficiary.accountRoutingType1 && { "account_routing_type1": beneficiary.accountRoutingType1 }),
+                  ...(beneficiary.accountRoutingValue1 && { "account_routing_value1": beneficiary.accountRoutingValue1 }),
+                  ...(beneficiary.accountRoutingType2 && { "account_routing_type2": beneficiary.accountRoutingType2 }),
+                  ...(beneficiary.accountRoutingValue2 && { "account_routing_value2": beneficiary.accountRoutingValue2 }),
+                  ...(beneficiary.currency === 'HKD' && { "local_clearing_system": "FPS" })
+                },
+                ...(beneficiary.bankName && { "company_name": beneficiary.bankName })
               },
-              "entity_type": "PERSONAL", // Default to personal
-              "bank_details": {
-                "bank_country_code": beneficiary.currency === 'HKD' ? 'HK'
-                "account_currency": beneficiary.currency || "HKD",
-                "account_name": beneficiary.accountHolderName,
-                ...(beneficiary.accountNumber && { "account_number": beneficiary.accountNumber }),
-                ...(beneficiary.accountRoutingType1 && { "account_routing_type1": beneficiary.accountRoutingType1 }),
-                ...(beneficiary.accountRoutingValue1 && { "account_routing_value1": beneficiary.accountRoutingValue1 }),
-                ...(beneficiary.accountRoutingType2 && { "account_routing_type2": beneficiary.accountRoutingType2 }),
-                ...(beneficiary.accountRoutingValue2 && { "account_routing_value2": beneficiary.accountRoutingValue2 }),
-                ...(beneficiary.currency === 'HKD' && { "local_clearing_system": "FPS" })
-              },
-              ...(beneficiary.bankName && { "company_name": beneficiary.bankName })
-            },
-            "source_amount": amount.toFixed(2),
+              "source_amount": amount.toFixed(2),
             "request_id": `${Date.now()}-${beneficiary.currency || 'HKD'}-${Math.random().toString(36).substr(2, 6)}`
           };
+          }
 
           console.log('Airwallex bank transfer request body:', JSON.stringify(transferData, null, 2));
           
