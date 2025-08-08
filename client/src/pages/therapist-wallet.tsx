@@ -879,20 +879,33 @@ export default function TherapistWallet() {
                       申请提现
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>申请提现</DialogTitle>
-                      <DialogDescription>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader className="text-center pb-2">
+                      <DialogTitle className="text-2xl font-bold text-gray-900">申请提现</DialogTitle>
+                      <DialogDescription className="text-gray-600 text-base">
                         申请将您的可用余额提现到指定收款账户
                       </DialogDescription>
                     </DialogHeader>
                     <Form {...withdrawalForm}>
-                      <form onSubmit={withdrawalForm.handleSubmit(onWithdrawalSubmit)} className="space-y-4">
-                        {/* 可提现余额提示 */}
-                        <div className="p-3 bg-blue-50 rounded-lg">
-                          <div className="text-sm text-gray-600">可提现余额</div>
-                          <div className="text-xl font-semibold text-blue-600">
-                            HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                      <form onSubmit={withdrawalForm.handleSubmit(onWithdrawalSubmit)} className="space-y-6">
+                        {/* 可提现余额展示 - 优化样式 */}
+                        <div className="relative overflow-hidden">
+                          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-blue-100 text-sm font-medium">可提现余额</span>
+                              <div className="bg-white/20 rounded-full p-2">
+                                <ArrowDownToLine className="h-4 w-4" />
+                              </div>
+                            </div>
+                            <div className="text-3xl font-bold">
+                              HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                            </div>
+                            <div className="text-blue-100 text-sm mt-1">
+                              立即提现到您的收款账户
+                            </div>
+                          </div>
+                          <div className="absolute top-0 right-0 w-32 h-32 transform translate-x-8 -translate-y-8 opacity-10">
+                            <div className="w-full h-full bg-white rounded-full"></div>
                           </div>
                         </div>
 
@@ -900,25 +913,59 @@ export default function TherapistWallet() {
                           control={withdrawalForm.control}
                           name="amount"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>提现金额</FormLabel>
+                            <FormItem className="space-y-3">
+                              <FormLabel className="text-base font-semibold text-gray-900">提现金额</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">HK$</span>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="0.00"
-                                    className="pl-8"
-                                    max={walletSummary?.availableBalance || 0}
-                                    step="0.01"
-                                    {...field}
-                                    onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-                                  />
+                                <div className="space-y-3">
+                                  <div className="relative">
+                                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 font-medium text-lg">HK$</span>
+                                    <Input 
+                                      type="number" 
+                                      placeholder="0.00"
+                                      className="pl-12 py-3 text-lg font-semibold border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                                      max={walletSummary?.availableBalance || 0}
+                                      step="0.01"
+                                      {...field}
+                                      onChange={(e) => {
+                                        const value = Number(e.target.value) || 0;
+                                        field.onChange(value);
+                                      }}
+                                    />
+                                  </div>
+                                  {/* 快速金额选择按钮 */}
+                                  <div className="flex flex-wrap gap-2">
+                                    {[25, 50, 75, 100].map((percentage) => {
+                                      const amount = Math.floor((walletSummary?.availableBalance || 0) * percentage / 100 * 100) / 100;
+                                      return (
+                                        <Button
+                                          key={percentage}
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="flex-1 min-w-0 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all duration-200"
+                                          onClick={() => field.onChange(amount)}
+                                          disabled={amount <= 0}
+                                        >
+                                          {percentage === 100 ? '全部' : `${percentage}%`}
+                                          <span className="ml-1 text-xs text-gray-500">
+                                            HK${amount.toFixed(0)}
+                                          </span>
+                                        </Button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               </FormControl>
                               <FormMessage />
-                              <div className="text-xs text-gray-500">
-                                最大可提现金额: HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">
+                                  最大可提现: <span className="font-semibold text-green-600">HK${walletSummary?.availableBalance?.toFixed(2) || '0.00'}</span>
+                                </span>
+                                {field.value > 0 && (
+                                  <span className="text-blue-600 font-medium">
+                                    约 {((field.value / (walletSummary?.availableBalance || 1)) * 100).toFixed(0)}% 余额
+                                  </span>
+                                )}
                               </div>
                             </FormItem>
                           )}
@@ -928,19 +975,19 @@ export default function TherapistWallet() {
                           control={withdrawalForm.control}
                           name="beneficiaryId"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>选择收款账户</FormLabel>
+                            <FormItem className="space-y-3">
+                              <FormLabel className="text-base font-semibold text-gray-900">选择收款账户</FormLabel>
                               <Select onValueChange={(value) => field.onChange(Number(value))}>
                                 <FormControl>
-                                  <SelectTrigger>
+                                  <SelectTrigger className="py-3 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg">
                                     <SelectValue placeholder="请选择收款账户" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent>
+                                <SelectContent className="rounded-lg">
                                   {beneficiaries?.map((beneficiary: any) => (
-                                    <SelectItem key={beneficiary.id} value={beneficiary.id.toString()}>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-lg">
+                                    <SelectItem key={beneficiary.id} value={beneficiary.id.toString()} className="py-3">
+                                      <div className="flex items-center gap-3 w-full">
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-lg">
                                           {beneficiary.currency === 'USD' ? '🇺🇸' :
                                            beneficiary.currency === 'HKD' ? '🇭🇰' :
                                            beneficiary.currency === 'CNY' ? '🇨🇳' :
@@ -949,15 +996,23 @@ export default function TherapistWallet() {
                                            beneficiary.currency === 'SGD' ? '🇸🇬' :
                                            beneficiary.currency === 'AUD' ? '🇦🇺' :
                                            beneficiary.currency === 'JPY' ? '🇯🇵' : '💳'}
-                                        </span>
-                                        <div>
-                                          <div className="font-medium">{beneficiary.accountHolderName}</div>
-                                          <div className="text-sm text-gray-500">
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-semibold text-gray-900 truncate">{beneficiary.accountHolderName}</div>
+                                          <div className="text-sm text-gray-600 truncate">
                                             {beneficiary.accountType === 'airwallex' 
                                               ? (beneficiary.walletEmail || beneficiary.walletId || 'Airwallex钱包')
-                                              : maskAccountNumber(beneficiary.accountNumber)}
+                                              : (beneficiary.accountNumber ? maskAccountNumber(beneficiary.accountNumber) : (beneficiary.accountRoutingValue1 || '收款账户'))}
                                           </div>
+                                          {beneficiary.bankName && (
+                                            <div className="text-xs text-gray-500 truncate">{beneficiary.bankName}</div>
+                                          )}
                                         </div>
+                                        {beneficiary.isActive ? (
+                                          <CheckCircle className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                          <AlertCircle className="h-4 w-4 text-orange-500" />
+                                        )}
                                       </div>
                                     </SelectItem>
                                   ))}
@@ -965,7 +1020,10 @@ export default function TherapistWallet() {
                               </Select>
                               <FormMessage />
                               {!beneficiaries?.length && (
-                                <p className="text-sm text-orange-600">请先添加收款账户</p>
+                                <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                                  <p className="text-sm text-orange-700">请先添加收款账户后再申请提现</p>
+                                </div>
                               )}
                             </FormItem>
                           )}
@@ -975,31 +1033,44 @@ export default function TherapistWallet() {
                           control={withdrawalForm.control}
                           name="notes"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>备注 (可选)</FormLabel>
+                            <FormItem className="space-y-3">
+                              <FormLabel className="text-base font-semibold text-gray-900">备注 <span className="text-gray-500 font-normal">(可选)</span></FormLabel>
                               <FormControl>
-                                <Input placeholder="提现备注" {...field} />
+                                <Input 
+                                  placeholder="如: 工资提现、月度提取等" 
+                                  className="py-3 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                                  {...field} 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2 pt-4">
-                          <Button type="button" variant="outline" onClick={() => setWithdrawalDialogOpen(false)}>
+                        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setWithdrawalDialogOpen(false)}
+                            className="flex-1 py-3 text-base font-medium border-2 hover:bg-gray-50"
+                          >
                             取消
                           </Button>
                           <Button 
                             type="submit" 
+                            className="flex-1 py-3 text-base font-semibold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm"
                             disabled={createWithdrawalMutation.isPending || !beneficiaries?.length || !walletSummary?.availableBalance}
                           >
                             {createWithdrawalMutation.isPending ? (
                               <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
                                 提交中...
                               </>
                             ) : (
-                              "提交申请"
+                              <>
+                                <ArrowDownToLine className="h-5 w-5 mr-2" />
+                                提交申请
+                              </>
                             )}
                           </Button>
                         </div>
