@@ -1375,7 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 "reason": "business_expenses",
                 "source_currency": "HKD",
                 "transfer_currency": beneficiary.currency || "HKD",
-                "beneficiary": rawData.values || rawData, // Use values object if available, fallback to root
+                "beneficiary": rawData.values?.beneficiary || rawData.beneficiary || rawData, // Use beneficiary from values object
                 "source_amount": amount.toFixed(2),
                 "request_id": `${Date.now()}-${beneficiary.currency || 'HKD'}-${Math.random().toString(36).substr(2, 6)}`
               };
