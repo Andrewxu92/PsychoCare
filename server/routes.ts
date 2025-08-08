@@ -1384,36 +1384,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error('Invalid airwallex_raw_data format');
             }
           } else {
-            // Fallback to manual construction if no airwallex_raw_data
-            console.log('No airwallex_raw_data found, using manual construction');
-            transferData = {
-              "transfer_method": "LOCAL",
-              "reference": `${beneficiary.currency}测试PRE${Date.now()}`,
-              "reason": "business_expenses",
-              "source_currency": "HKD",
-              "transfer_currency": beneficiary.currency || "HKD",
-              "beneficiary": {
-                "address": {
-                  "country_code": 'HK',
-                  "city": 'Hong Kong',
-                },
-                "entity_type": "PERSONAL",
-                "bank_details": {
-                  "bank_country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US',
-                  "account_currency": beneficiary.currency || "HKD",
-                  "account_name": beneficiary.accountHolderName,
-                  ...(beneficiary.accountNumber && { "account_number": beneficiary.accountNumber }),
-                  ...(beneficiary.accountRoutingType1 && { "account_routing_type1": beneficiary.accountRoutingType1 }),
-                  ...(beneficiary.accountRoutingValue1 && { "account_routing_value1": beneficiary.accountRoutingValue1 }),
-                  ...(beneficiary.accountRoutingType2 && { "account_routing_type2": beneficiary.accountRoutingType2 }),
-                  ...(beneficiary.accountRoutingValue2 && { "account_routing_value2": beneficiary.accountRoutingValue2 }),
-                  ...(beneficiary.currency === 'HKD' && { "local_clearing_system": "FPS" })
-                },
-                ...(beneficiary.bankName && { "company_name": beneficiary.bankName })
-              },
-              "source_amount": amount.toFixed(2),
-            "request_id": `${Date.now()}-${beneficiary.currency || 'HKD'}-${Math.random().toString(36).substr(2, 6)}`
-          };
+            // No airwallex_raw_data available for bank account
+            console.log('No airwallex_raw_data found for bank account');
+            throw new Error('未找到绑定的收款帐号信息，请联系您的客户经理');
           }
 
           console.log('Airwallex bank transfer request body:', JSON.stringify(transferData, null, 2));
