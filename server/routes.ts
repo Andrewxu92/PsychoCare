@@ -1369,13 +1369,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "transfer_currency": beneficiary.currency || "HKD",
             "beneficiary": {
               "address": {
-                "country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US', // Default based on currency
-                "street_address": "Room 1420, 14/F, Radio City, 505-511 Hennessy Road, Causeway Bay, Hong Kong",
-                "city": beneficiary.currency === 'HKD' ? 'Hong Kong' : 'New York'
+                "country_code": 'HK',
+                "city": 'Hong Kong',
               },
               "entity_type": "PERSONAL", // Default to personal
               "bank_details": {
-                "bank_country_code": beneficiary.currency === 'HKD' ? 'HK' : 'US',
+                "bank_country_code": beneficiary.currency === 'HKD' ? 'HK'
                 "account_currency": beneficiary.currency || "HKD",
                 "account_name": beneficiary.accountHolderName,
                 ...(beneficiary.accountNumber && { "account_number": beneficiary.accountNumber }),
