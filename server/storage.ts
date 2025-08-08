@@ -106,7 +106,9 @@ export interface IStorage {
     status?: string;
     dateFrom?: Date;
     dateTo?: Date;
-  }): Promise<TherapistEarnings[]>;
+    page?: number;
+    limit?: number;
+  }): Promise<{ earnings: TherapistEarnings[]; total: number; page: number; totalPages: number; }>;
   createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings>;
   updateTherapistEarnings(id: number, updates: Partial<InsertTherapistEarnings>): Promise<TherapistEarnings>;
   getTherapistWalletSummary(therapistId: number): Promise<{
@@ -124,7 +126,10 @@ export interface IStorage {
   setDefaultBeneficiary(therapistId: number, beneficiaryId: number): Promise<void>;
 
   // Withdrawal operations
-  getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]>;
+  getWithdrawalRequests(therapistId: number, options?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{ withdrawals: WithdrawalRequest[]; total: number; page: number; totalPages: number; }>;
   createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest>;
   updateWithdrawalRequest(id: number, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest>;
   updateWithdrawalByTransferId(transferId: string, updates: Partial<InsertWithdrawalRequest>): Promise<WithdrawalRequest | undefined>;
@@ -462,9 +467,13 @@ export class DatabaseStorage implements IStorage {
     status?: string;
     dateFrom?: Date;
     dateTo?: Date;
-  }): Promise<TherapistEarnings[]> {
-    let query;
-
+    page?: number;
+    limit?: number;
+  }): Promise<{ earnings: TherapistEarnings[]; total: number; page: number; totalPages: number; }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
+    const offset = (page - 1) * limit;
+    
     const earningsConditions = [eq(therapistEarnings.therapistId, therapistId)];
     
     if (filters?.status) {
@@ -478,10 +487,28 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    return await db.select()
+    // Get total count
+    const [countResult] = await db.select({ count: count() })
+      .from(therapistEarnings)
+      .where(and(...earningsConditions));
+    const total = countResult.count;
+    
+    // Get paginated data
+    const earnings = await db.select()
       .from(therapistEarnings)
       .where(and(...earningsConditions))
-      .orderBy(desc(therapistEarnings.earnedAt));
+      .orderBy(desc(therapistEarnings.earnedAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const totalPages = Math.ceil(total / limit);
+    
+    return {
+      earnings,
+      total,
+      page,
+      totalPages
+    };
   }
 
   async createTherapistEarnings(earnings: InsertTherapistEarnings): Promise<TherapistEarnings> {
@@ -578,11 +605,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Withdrawal operations
-  async getWithdrawalRequests(therapistId: number): Promise<WithdrawalRequest[]> {
-    return await db.select()
+  async getWithdrawalRequests(therapistId: number, options?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{ withdrawals: WithdrawalRequest[]; total: number; page: number; totalPages: number; }> {
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+    const offset = (page - 1) * limit;
+    
+    // Get total count
+    const [countResult] = await db.select({ count: count() })
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.therapistId, therapistId));
+    const total = countResult.count;
+    
+    // Get paginated data
+    const withdrawals = await db.select()
       .from(withdrawalRequests)
       .where(eq(withdrawalRequests.therapistId, therapistId))
-      .orderBy(desc(withdrawalRequests.createdAt));
+      .orderBy(desc(withdrawalRequests.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const totalPages = Math.ceil(total / limit);
+    
+    return {
+      withdrawals,
+      total,
+      page,
+      totalPages
+    };
   }
 
   async createWithdrawalRequest(request: InsertWithdrawalRequest): Promise<WithdrawalRequest> {

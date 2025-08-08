@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -102,6 +103,11 @@ export default function TherapistWallet() {
   const [beneficiaryDetailsOpen, setBeneficiaryDetailsOpen] = useState(false);
   const [isBindingInProgress, setIsBindingInProgress] = useState(false);
   const [, setLocation] = useLocation();
+  
+  // Pagination states
+  const [earningsPage, setEarningsPage] = useState(1);
+  const [withdrawalsPage, setWithdrawalsPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Get therapist ID (assuming user is authenticated as therapist)
   const { data: therapist = undefined } = useQuery<{ id: number } | undefined>({
@@ -123,11 +129,23 @@ export default function TherapistWallet() {
     enabled: !!therapistId
   });
 
-  // Earnings query
-  const { data: earnings, isLoading: earningsLoading } = useQuery<any[]>({
-    queryKey: [`/api/therapists/${therapistId}/earnings`],
+  // Earnings query with pagination
+  const { data: earningsData, isLoading: earningsLoading } = useQuery<{
+    earnings: any[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }>({
+    queryKey: [`/api/therapists/${therapistId}/earnings`, earningsPage],
+    queryFn: async () => {
+      const response = await fetch(`/api/therapists/${therapistId}/earnings?page=${earningsPage}&limit=${itemsPerPage}`);
+      if (!response.ok) throw new Error('Failed to fetch earnings');
+      return response.json();
+    },
     enabled: !!therapistId
   });
+  
+  const earnings = earningsData?.earnings || [];
 
   // Beneficiaries query
   const { data: beneficiaries, isLoading: beneficiariesLoading } = useQuery<any[]>({
@@ -135,11 +153,23 @@ export default function TherapistWallet() {
     enabled: !!therapistId
   });
 
-  // Withdrawals query
-  const { data: withdrawals, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useQuery<any[]>({
-    queryKey: [`/api/therapists/${therapistId}/withdrawals`],
+  // Withdrawals query with pagination
+  const { data: withdrawalsData, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useQuery<{
+    withdrawals: any[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }>({
+    queryKey: [`/api/therapists/${therapistId}/withdrawals`, withdrawalsPage],
+    queryFn: async () => {
+      const response = await fetch(`/api/therapists/${therapistId}/withdrawals?page=${withdrawalsPage}&limit=${itemsPerPage}`);
+      if (!response.ok) throw new Error('Failed to fetch withdrawals');
+      return response.json();
+    },
     enabled: !!therapistId
   });
+  
+  const withdrawals = withdrawalsData?.withdrawals || [];
 
   // Auto-refresh for processing withdrawals (limited to 30 seconds)
   useEffect(() => {
@@ -491,25 +521,61 @@ export default function TherapistWallet() {
                     ))}
                   </div>
                 ) : earnings && earnings.length > 0 ? (
-                  <div className="space-y-4">
-                    {earnings.map((earning: any) => (
-                      <div key={earning.id} className="flex justify-between items-center p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">预约收入</p>
-                          <p className="text-sm text-gray-600">
-                            {format(new Date(earning.earnedAt), "yyyy年MM月dd日 HH:mm")}
-                          </p>
+                  <>
+                    <div className="space-y-4">
+                      {earnings.map((earning: any) => (
+                        <div key={earning.id} className="flex justify-between items-center p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">预约收入</p>
+                            <p className="text-sm text-gray-600">
+                              {format(new Date(earning.earnedAt), "yyyy年MM月dd日 HH:mm")}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-bold text-green-600">HK${earning.netAmount}</p>
+                            <p className="text-xs text-gray-500">手续费: HK${earning.commission}</p>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(earning.status)}
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className="font-bold text-green-600">HK${earning.netAmount}</p>
-                          <p className="text-xs text-gray-500">手续费: HK${earning.commission}</p>
-                        </div>
-                        <div className="text-right">
-                          {getStatusBadge(earning.status)}
+                      ))}
+                    </div>
+                    {earningsData && earningsData.totalPages > 1 && (
+                      <div className="mt-6">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                className={earningsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                onClick={() => earningsPage > 1 && setEarningsPage(earningsPage - 1)}
+                              />
+                            </PaginationItem>
+                            {Array.from({ length: earningsData.totalPages }, (_, i) => i + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  isActive={page === earningsPage}
+                                  className="cursor-pointer"
+                                  onClick={() => setEarningsPage(page)}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                            <PaginationItem>
+                              <PaginationNext
+                                className={earningsPage >= earningsData.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                onClick={() => earningsPage < earningsData.totalPages && setEarningsPage(earningsPage + 1)}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                        <div className="text-center mt-2 text-sm text-gray-500">
+                          第 {earningsData.page} 页，共 {earningsData.totalPages} 页 · 总计 {earningsData.total} 条记录
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -1087,27 +1153,63 @@ export default function TherapistWallet() {
                     ))}
                   </div>
                 ) : withdrawals && withdrawals.length > 0 ? (
-                  <div className="space-y-4">
-                    {withdrawals.map((withdrawal: any) => (
-                      <div key={withdrawal.id} className="flex justify-between items-center p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">提现申请</p>
-                          <p className="text-sm text-gray-600">
-                            {format(new Date(withdrawal.requestedAt || withdrawal.createdAt), "yyyy年MM月dd日 HH:mm")}
-                          </p>
-                          {withdrawal.notes && (
-                            <p className="text-sm text-gray-500">备注: {withdrawal.notes}</p>
-                          )}
+                  <>
+                    <div className="space-y-4">
+                      {withdrawals.map((withdrawal: any) => (
+                        <div key={withdrawal.id} className="flex justify-between items-center p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">提现申请</p>
+                            <p className="text-sm text-gray-600">
+                              {format(new Date(withdrawal.requestedAt || withdrawal.createdAt), "yyyy年MM月dd日 HH:mm")}
+                            </p>
+                            {withdrawal.notes && (
+                              <p className="text-sm text-gray-500">备注: {withdrawal.notes}</p>
+                            )}
+                          </div>
+                          <div className="text-center">
+                            <p className="font-bold text-red-600">-HK${withdrawal.amount}</p>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(withdrawal.status)}
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className="font-bold text-red-600">-HK${withdrawal.amount}</p>
-                        </div>
-                        <div className="text-right">
-                          {getStatusBadge(withdrawal.status)}
+                      ))}
+                    </div>
+                    {withdrawalsData && withdrawalsData.totalPages > 1 && (
+                      <div className="mt-6">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                className={withdrawalsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                onClick={() => withdrawalsPage > 1 && setWithdrawalsPage(withdrawalsPage - 1)}
+                              />
+                            </PaginationItem>
+                            {Array.from({ length: withdrawalsData.totalPages }, (_, i) => i + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  isActive={page === withdrawalsPage}
+                                  className="cursor-pointer"
+                                  onClick={() => setWithdrawalsPage(page)}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                            <PaginationItem>
+                              <PaginationNext
+                                className={withdrawalsPage >= withdrawalsData.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                onClick={() => withdrawalsPage < withdrawalsData.totalPages && setWithdrawalsPage(withdrawalsPage + 1)}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                        <div className="text-center mt-2 text-sm text-gray-500">
+                          第 {withdrawalsData.page} 页，共 {withdrawalsData.totalPages} 页 · 总计 {withdrawalsData.total} 条记录
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <Download className="h-12 w-12 mx-auto mb-4 text-gray-300" />

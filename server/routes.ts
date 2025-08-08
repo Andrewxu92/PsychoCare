@@ -982,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const therapistId = parseInt(req.params.therapistId);
       const userId = req.user.claims.sub;
-      const { status, dateFrom, dateTo } = req.query;
+      const { status, dateFrom, dateTo, page, limit } = req.query;
       
       // Verify therapist ownership
       const therapist = await storage.getTherapistByUserId(userId);
@@ -994,10 +994,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status as string,
         dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
         dateTo: dateTo ? new Date(dateTo as string) : undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? Math.min(parseInt(limit as string), 10) : 10, // Max 10 records per page
       };
 
-      const earnings = await storage.getTherapistEarnings(therapistId, filters);
-      res.json(earnings);
+      const result = await storage.getTherapistEarnings(therapistId, filters);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching earnings:", error);
       res.status(500).json({ message: "Failed to fetch earnings" });
@@ -1253,8 +1255,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const withdrawals = await storage.getWithdrawalRequests(therapistId);
-      res.json(withdrawals);
+      const { page, limit } = req.query;
+      const options = {
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? Math.min(parseInt(limit as string), 10) : 10, // Max 10 records per page
+      };
+
+      const result = await storage.getWithdrawalRequests(therapistId, options);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching withdrawals:", error);
       res.status(500).json({ message: "Failed to fetch withdrawals" });
@@ -1432,7 +1440,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Only mark earnings as withdrawn if transfer was successful or for non-Airwallex accounts
       if (withdrawalStatus !== "failed") {
-        const availableEarnings = await storage.getTherapistEarnings(therapistId, { status: "available" });
+        const availableEarningsResult = await storage.getTherapistEarnings(therapistId, { status: "available" });
+        const availableEarnings = availableEarningsResult.earnings;
         let remainingAmount = amount;
         
         for (const earning of availableEarnings) {
