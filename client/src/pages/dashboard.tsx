@@ -14,10 +14,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   User, Calendar, Clock, Star, MapPin, Phone, Mail, Edit, Save, 
   Video, Users, CheckCircle, XCircle, AlertCircle, Plus, Settings,
-  History, TrendingUp, Award, FileText
+  History, TrendingUp, Award, FileText, X
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -121,6 +132,41 @@ export default function Dashboard() {
       toast({
         title: "更新失败",
         description: "更新预约状态时出现错误。",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 取消预约的mutation
+  const cancelAppointmentMutation = useMutation({
+    mutationFn: async (appointmentId: number) => {
+      const response = await apiRequest('POST', `/api/appointments/${appointmentId}/cancel`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      toast({
+        title: "预约已取消",
+        description: "您的预约已成功取消。",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "登录已过期",
+          description: "正在重新登录...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "取消失败",
+        description: error.message.includes('无法取消已支付') 
+          ? "无法取消已支付的预约"
+          : "取消预约时出现错误，请稍后重试。",
         variant: "destructive",
       });
     },
@@ -588,9 +634,9 @@ export default function Dashboard() {
                                 {getStatusText(appointment.status, appointment.paymentStatus)}
                               </Badge>
                               
-                              {/* 来访者重新支付按钮 - 待支付状态 */}
+                              {/* 来访者操作按钮 - 待支付状态 */}
                               {user?.role === 'client' && appointment.status === 'pending' && appointment.paymentStatus !== 'paid' && (
-                                <div className="mt-2">
+                                <div className="flex space-x-2 mt-2">
                                   <Button 
                                     size="sm" 
                                     variant="default"
@@ -601,6 +647,37 @@ export default function Dashboard() {
                                   >
                                     完成支付
                                   </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="text-red-600 border-red-200 hover:bg-red-50"
+                                        disabled={cancelAppointmentMutation.isPending}
+                                      >
+                                        <X className="mr-1 h-4 w-4" />
+                                        取消
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>确认取消预约</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          您确定要取消此预约吗？取消后将无法恢复，您需要重新预约咨询师。
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>暂不取消</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => cancelAppointmentMutation.mutate(appointment.id)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                          disabled={cancelAppointmentMutation.isPending}
+                                        >
+                                          {cancelAppointmentMutation.isPending ? "取消中..." : "确认取消"}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                                 </div>
                               )}
 
